@@ -21,6 +21,11 @@ function hideMsg(id) {
   el.style.display = "none"
 }
 
+function moneyCOP(n) {
+  const val = Number(n || 0)
+  return val.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
+}
+
 function semaforoBadge(semaforo) {
   const s = (semaforo || "").toLowerCase()
   const map = {
@@ -34,58 +39,54 @@ function semaforoBadge(semaforo) {
     verde: "success",
   }
   const cls = map[s] || "secondary"
-  return `<span class="badge bg-${cls} badge-semaforo">${s || "—"}</span>`
+  return `<span class="badge bg-${cls}">${s || "—"}</span>`
 }
 
-function moneyCOP(n) {
-  const val = Number(n || 0)
-  return val.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
+function todayISODate() {
+  // YYYY-MM-DD en hora local
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
 }
 
 async function loadAreasGrupos() {
-  // Recomendado: usar la vista v_area_grupo si la creaste.
-  // Si no existe, puedes leer directo de area y grupo (más llamadas).
-  // Aquí asumimos que existe v_area_grupo.
   const { data, error } = await supabaseClient
     .from("v_area_grupo")
     .select("area_id, area, grupo_id, grupo")
 
   if (error) throw error
 
-  // Agrupar para pintar accordion
   const map = new Map()
   for (const row of data) {
-    if (!map.has(row.area_id)) {
-      map.set(row.area_id, { area: row.area, grupos: [] })
-    }
-    if (row.grupo_id) {
-      map.get(row.area_id).grupos.push({ grupo_id: row.grupo_id, grupo: row.grupo })
-    }
+    if (!map.has(row.area_id)) map.set(row.area_id, { area: row.area, grupos: [] })
+    if (row.grupo_id) map.get(row.area_id).grupos.push({ grupo_id: row.grupo_id, grupo: row.grupo })
   }
 
   const html = [...map.entries()].map(([area_id, info], idx) => {
-    const aid = `acc-${area_id}`
-    const items = info.grupos.length
+    const collapseId = `acc-${area_id}`
+    const gruposHTML = info.grupos.length
       ? info.grupos.map(g => `
-          <div class="list-group-item list-group-item-action clickable"
-               data-area-id="${area_id}" data-area="${info.area}"
-               data-grupo-id="${g.grupo_id}" data-grupo="${g.grupo}">
-            ${g.grupo}
-          </div>
-        `).join("")
+        <div class="list-group-item list-group-item-action"
+             style="cursor:pointer"
+             data-area-id="${area_id}" data-area="${info.area}"
+             data-grupo-id="${g.grupo_id}" data-grupo="${g.grupo}">
+          ${g.grupo}
+        </div>`).join("")
       : `<div class="text-muted small px-2 py-2">Sin grupos</div>`
 
     return `
       <div class="accordion-item">
         <h2 class="accordion-header">
           <button class="accordion-button ${idx === 0 ? "" : "collapsed"}" type="button"
-                  data-bs-toggle="collapse" data-bs-target="#${aid}">
+                  data-bs-toggle="collapse" data-bs-target="#${collapseId}">
             ${info.area}
           </button>
         </h2>
-        <div id="${aid}" class="accordion-collapse collapse ${idx === 0 ? "show" : ""}">
+        <div id="${collapseId}" class="accordion-collapse collapse ${idx === 0 ? "show" : ""}">
           <div class="list-group list-group-flush">
-            ${items}
+            ${gruposHTML}
           </div>
         </div>
       </div>
@@ -97,8 +98,7 @@ async function loadAreasGrupos() {
   document.getElementById("navAreasDesktop").innerHTML = acc
   document.getElementById("navAreasMobile").innerHTML = acc
 
-  // Delegación de eventos (captura clics)
-  document.querySelectorAll('[data-grupo-id]').forEach(el => {
+  document.querySelectorAll("[data-grupo-id]").forEach(el => {
     el.addEventListener("click", async () => {
       current.area_id = el.dataset.areaId
       current.area = el.dataset.area
@@ -111,7 +111,6 @@ async function loadAreasGrupos() {
 
       await loadProyectosByGrupo(current.grupo_id)
 
-      // cerrar offcanvas en móvil si está abierto
       const off = bootstrap.Offcanvas.getInstance(document.getElementById("offcanvasNav"))
       if (off) off.hide()
     })
@@ -125,12 +124,13 @@ async function loadProyectosByGrupo(grupo_id) {
 
   const { data, error } = await supabaseClient
     .from("v_proyecto_avance_costo")
-    .select("proyecto_id, nombre, porcentaje, semaforo, costo_total")
-    .eq("grupo_id", grupo_id) // IMPORTANTE: tu vista debe incluir grupo_id (si no, la ajustamos)
+    .select("proyecto_id, nombre, porcentaje, semaforo, costo_total, grupo_id")
+    .eq("grupo_id", grupo_id)
     .order("nombre", { ascending: true })
 
   if (error) {
-    setMsg("msg", "❌ " + error.message, "danger")
+    console.error("LIST ERROR:", error)
+    setMsg("msg", `❌ ${error.message}`, "danger")
     tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">Error cargando proyectos.</td></tr>`
     return
   }
@@ -143,19 +143,17 @@ async function loadProyectosByGrupo(grupo_id) {
   }
 
   tbody.innerHTML = data.map(p => `
-    <tr class="clickable" data-id="${p.proyecto_id}">
-      <td class="truncate">${p.nombre}</td>
+    <tr style="cursor:pointer" data-id="${p.proyecto_id}">
+      <td>${p.nombre ?? "—"}</td>
       <td class="text-end">${Number(p.porcentaje || 0).toFixed(2)}%</td>
       <td>${semaforoBadge(p.semaforo)}</td>
       <td class="text-end">${moneyCOP(p.costo_total)}</td>
     </tr>
   `).join("")
 
-  // click para abrir detalle
   tbody.querySelectorAll("tr[data-id]").forEach(tr => {
     tr.addEventListener("click", () => {
-      const id = tr.dataset.id
-      window.location.href = `proyecto.html?id=${id}`
+      window.location.href = `proyecto.html?id=${tr.dataset.id}`
     })
   })
 }
@@ -163,9 +161,7 @@ async function loadProyectosByGrupo(grupo_id) {
 function openModalNuevoProyecto() {
   hideMsg("msgModal")
 
-  // vigencia por defecto: año actual
   document.getElementById("inpVigencia").value = new Date().getFullYear()
-
   document.getElementById("inpArea").value = current.area || ""
   document.getElementById("inpGrupo").value = current.grupo || ""
 
@@ -176,38 +172,36 @@ function openModalNuevoProyecto() {
   document.getElementById("inpLinea").value = ""
   document.getElementById("inpEstrategia").value = ""
 
-  const modal = new bootstrap.Modal(document.getElementById("modalProyecto"))
-  modal.show()
+  new bootstrap.Modal(document.getElementById("modalProyecto")).show()
 }
 
 async function guardarProyecto() {
   try {
     hideMsg("msgModal")
 
-    const vigencia = parseInt(document.getElementById("inpVigencia").value, 10)
+    if (!current.area_id || !current.grupo_id) {
+      return setMsg("msgModal", "Selecciona un grupo antes de crear el proyecto.", "warning")
+    }
+
+    const vigencia = parseInt(document.getElementById("inpVigencia").value, 10) || new Date().getFullYear()
     const nombre = document.getElementById("inpNombre").value.trim()
-    const manager = document.getElementById("inpManager").value.trim()
-    const objetivo = document.getElementById("inpObjetivo").value.trim()
-
-    const nodo = document.getElementById("inpNodo").value.trim()
-    const linea = document.getElementById("inpLinea").value.trim()
-    const estrategia = document.getElementById("inpEstrategia").value.trim()
-
-    if (!current.grupo_id) return setMsg("msgModal", "Selecciona un grupo.", "warning")
     if (!nombre) return setMsg("msgModal", "El nombre del proyecto es obligatorio.", "warning")
 
     const payload = {
+      // IMPORTANTES (en tu tabla existen)
       vigencia,
+      fecha: todayISODate(),        // 👈 evita 400 si fecha es NOT NULL
       area_id: current.area_id,
       grupo_id: current.grupo_id,
       nombre,
-      manager: manager || null,
-      objetivo: objetivo || null,
+      grupo: current.grupo,
 
-      // campos opcionales (si existen en tu tabla)
-      nodo: nodo || null,
-      linea: linea || null,
-      estrategia: estrategia || null,
+      // opcionales
+      manager: document.getElementById("inpManager").value.trim() || null,
+      objetivo: document.getElementById("inpObjetivo").value.trim() || null,
+      nodo: document.getElementById("inpNodo").value.trim() || null,
+      linea: document.getElementById("inpLinea").value.trim() || null,
+      estrategia: document.getElementById("inpEstrategia").value.trim() || null,
     }
 
     const { data, error } = await supabaseClient
@@ -216,11 +210,16 @@ async function guardarProyecto() {
       .select("id")
       .single()
 
-    if (error) throw error
+    if (error) {
+      // Mostrar el error real (message/details/hint)
+      console.error("INSERT ERROR:", error)
+      const details = error.details ? ` | ${error.details}` : ""
+      const hint = error.hint ? ` | ${error.hint}` : ""
+      throw new Error(`${error.message}${details}${hint}`)
+    }
 
     // cerrar modal
-    const modalEl = document.getElementById("modalProyecto")
-    bootstrap.Modal.getInstance(modalEl).hide()
+    bootstrap.Modal.getInstance(document.getElementById("modalProyecto")).hide()
 
     // recargar lista
     await loadProyectosByGrupo(current.grupo_id)
@@ -230,24 +229,21 @@ async function guardarProyecto() {
 }
 
 async function init() {
-  // proteger ruta
   const session = await requireAuth()
   if (!session) return
 
-  // logout
   document.getElementById("btnLogout").addEventListener("click", async () => {
     await supabaseClient.auth.signOut()
     window.location.href = "index.html"
   })
 
-  // nuevo proyecto
   document.getElementById("btnNuevoProyecto").addEventListener("click", openModalNuevoProyecto)
   document.getElementById("btnGuardarProyecto").addEventListener("click", guardarProyecto)
 
-  // cargar navegación
   try {
     await loadAreasGrupos()
   } catch (e) {
+    console.error("NAV ERROR:", e)
     setMsg("msg", "❌ " + (e.message || e), "danger")
   }
 }
