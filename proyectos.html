@@ -1,49 +1,177 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proyectos</title>
-        <!-- en cada HTML, antes de tus scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Proyectos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .sidebar { width: 320px; }
+    .clickable { cursor: pointer; }
+    .badge-semaforo { text-transform: uppercase; letter-spacing: .02em; }
+    .truncate { max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
 </head>
 <body class="bg-light">
+
+  <!-- Topbar -->
   <nav class="navbar navbar-expand bg-white border-bottom">
-    <div class="container">
-      <span class="navbar-brand">Proyectos</span>
-      <button id="btnLogout" class="btn btn-outline-danger btn-sm">Salir</button>
+    <div class="container-fluid">
+      <button class="btn btn-outline-secondary d-md-none me-2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
+        ☰
+      </button>
+      <span class="navbar-brand mb-0 h1">Gestión de Proyectos</span>
+
+      <div class="ms-auto d-flex gap-2">
+        <button id="btnLogout" class="btn btn-outline-danger btn-sm">Salir</button>
+      </div>
     </div>
   </nav>
 
-  <div class="container py-4">
-    <div id="msg" class="alert" style="display:none;"></div>
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <p class="mb-0">✅ Estás autenticado. Aquí cargaremos la tabla de proyectos.</p>
+  <div class="container-fluid py-3">
+    <div class="row g-3">
+
+      <!-- Sidebar (desktop) -->
+      <div class="col-md-4 col-lg-3 d-none d-md-block">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white">
+            <strong>Áreas y Grupos</strong>
+          </div>
+          <div class="card-body p-2" id="navAreasDesktop">
+            <div class="text-muted small px-2 py-2">Cargando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main -->
+      <div class="col-12 col-md-8 col-lg-9">
+        <div id="msg" class="alert" style="display:none;"></div>
+
+        <div class="card shadow-sm mb-3">
+          <div class="card-body d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <div>
+              <div class="text-muted small">Grupo seleccionado</div>
+              <div class="h5 mb-0" id="lblGrupo">—</div>
+              <div class="text-muted small" id="lblArea"></div>
+            </div>
+            <div class="d-flex gap-2">
+              <button id="btnNuevoProyecto" class="btn btn-primary" disabled>
+                + Nuevo proyecto
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-header bg-white d-flex align-items-center justify-content-between">
+            <strong>Proyectos</strong>
+            <span class="text-muted small" id="lblConteo">0</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Nombre</th>
+                    <th class="text-end">% Avance</th>
+                    <th>Semáforo</th>
+                    <th class="text-end">Costo total</th>
+                  </tr>
+                </thead>
+                <tbody id="tblProyectos">
+                  <tr><td colspan="4" class="text-muted p-3">Selecciona un grupo para ver proyectos.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Offcanvas (mobile) -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasNav">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Áreas y Grupos</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-2" id="navAreasMobile">
+      <div class="text-muted small px-2 py-2">Cargando...</div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo Proyecto -->
+  <div class="modal fade" id="modalProyecto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Nuevo proyecto</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="msgModal" class="alert" style="display:none;"></div>
+
+          <div class="mb-2">
+            <label class="form-label">Vigencia</label>
+            <input id="inpVigencia" type="number" class="form-control" />
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Área</label>
+            <input id="inpArea" type="text" class="form-control" disabled />
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Grupo</label>
+            <input id="inpGrupo" type="text" class="form-control" disabled />
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Nombre del proyecto</label>
+            <input id="inpNombre" type="text" class="form-control" placeholder="Ej: Fortalecimiento..." />
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Manager</label>
+            <input id="inpManager" type="text" class="form-control" placeholder="Responsable" />
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Objetivo (síntesis)</label>
+            <textarea id="inpObjetivo" class="form-control" rows="3" placeholder="Describe el objetivo general..."></textarea>
+          </div>
+
+          <!-- Campos que ya tienes en proyecto (si los quieres usar) -->
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Nodo</label>
+              <input id="inpNodo" type="text" class="form-control" placeholder="Nodo" />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Línea</label>
+              <input id="inpLinea" type="text" class="form-control" placeholder="Línea" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Estrategia</label>
+              <input id="inpEstrategia" type="text" class="form-control" placeholder="Estrategia" />
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btnGuardarProyecto" class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabaseClient.js"></script>
   <script src="assets/js/auth.js"></script>
-
-  <script>
-    ;(async () => {
-      const session = await requireAuth()
-      if (!session) return
-    })()
-
-    document.getElementById("btnLogout").addEventListener("click", async () => {
-      try {
-        await signOut()
-        window.location.href = "index.html"
-      } catch (e) {
-        setMsg("msg", "❌ " + (e.message || e), "danger")
-      }
-    })
-  </script>
+  <script src="assets/js/proyectos.js"></script>
 </body>
 </html>
