@@ -1,0 +1,30 @@
+#tablaRubros {
+  min-width: 1200px;   /* fuerza scroll cuando hay números grandes */
+}
+
+#tablaRubros th,
+#tablaRubros td {
+  white-space: nowrap;
+}
+
+/* Anchos mínimos */
+#tablaRubros th:nth-child(2),
+#tablaRubros td:nth-child(2) {
+  min-width: 360px;    /* Detalle */
+  white-space: normal;
+}
+
+#tablaRubros th:nth-child(1),
+#tablaRubros td:nth-child(1) {
+  min-width: 180px;    /* Rubro */
+}
+
+#tablaRubros th:nth-child(9),
+#tablaRubros td:nth-child(9) {
+  min-width: 160px;    /* Total */
+  font-weight: 600;
+}
+#tablaRubros input {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,4 +1,6 @@
 // assets/js/proyecto.js
+let cacheRubros = [];
+let cachePresupuesto = [];
 
 function qs(name) {
   return new URLSearchParams(window.location.search).get(name);
@@ -110,7 +112,7 @@ function renderMVRows() {
 
       <td>
         <select class="form-select form-select-sm" data-mv="tipo" data-i="${i}">
-          ${["acta", "asistencia","factura", "informe", "foto","diapositiva","carpeta digital", "audio", "video", "otro"]
+          ${["acta", "asistencia", "factura", "informe", "foto", "diapositiva", "carpeta digital", "audio", "video", "otro"]
           .map((t) => `<option value="${t}" ${m.tipo === t ? "selected" : ""}>${t}</option>`)
           .join("")}
         </select>
@@ -445,6 +447,9 @@ function renderObjetivosList() {
       renderProductosList();
       syncActionButtons();
 
+      cachePresupuesto = [];
+      await loadPresupuestoActividad(null);
+
       await loadActividades(objetivoActivoId);
       renderActividadesList();
     });
@@ -630,6 +635,9 @@ function renderActividadesList() {
 
       await loadProductos(actividadActivaId);
       renderProductosList();
+
+      // ✅ NUEVO: cargar presupuesto de esta actividad
+      await loadPresupuestoActividad(actividadActivaId);
     });
   });
 
@@ -926,6 +934,207 @@ async function init() {
   await loadObjetivos();
   renderActividadesList();
   renderProductosList();
+
+
+
+
+  document.getElementById("btnNuevoRubroItem")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addPresupuestoItem();
+  });
+
+
+
+
+  // al iniciar
+  await loadRubrosCatalogo();
+
+
 }
+async function loadRubrosCatalogo() {
+  const { data, error } = await supabaseClient
+    .from("rubro")
+    .select("id, nombre, categoria, unidad, codigo, activo")
+    .order("nombre", { ascending: true });
+
+  if (error) throw error;
+  cacheRubros = (data || []).filter(r => r.activo !== false);
+}
+
+async function loadPresupuestoActividad(actividadId) {
+  const tb = document.getElementById("tblPresupuesto");
+  if (!tb) return;
+
+  if (!actividadId) {
+    tb.innerHTML = `<tr><td colspan="9" class="text-muted p-2">Selecciona una actividad…</td></tr>`;
+    document.getElementById("btnNuevoRubroItem").disabled = true;
+    document.getElementById("sumActividad").textContent = "$ 0";
+    return;
+  }
+
+  tb.innerHTML = `<tr><td colspan="9" class="text-muted p-2">Cargando…</td></tr>`;
+  document.getElementById("btnNuevoRubroItem").disabled = false;
+
+  const { data, error } = await supabaseClient
+    .from("presupuesto_item")
+    .select(`
+      id, actividad_id, rubro_id, beneficiarios, veces, valor_unitario, costo_operativo_pct,
+      valor_bruto, costo_operativo_val, valor_total, orden,observaciones, created_at
+    `)
+    .eq("actividad_id", actividadId)
+    .order("orden", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    tb.innerHTML = `<tr><td colspan="9" class="text-danger p-2">Error cargando presupuesto.</td></tr>`;
+    return;
+  }
+
+  cachePresupuesto = data || [];
+  renderPresupuestoGrid();
+}
+
+function money(n) {
+  const v = Number(n || 0);
+  return v.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+}
+
+function renderPresupuestoGrid() {
+  const tb = document.getElementById("tblPresupuesto");
+  if (!tb) return;
+
+  if (!cachePresupuesto.length) {
+    tb.innerHTML = `<tr><td colspan="9" class="text-muted p-2">Aún no hay rubros para esta actividad.</td></tr>`;
+    document.getElementById("sumActividad").textContent = "$ 0";
+    return;
+  }
+
+  tb.innerHTML = cachePresupuesto.map(row => {
+    const rubroOptions = cacheRubros.map(r =>
+      `<option value="${r.id}" ${r.id === row.rubro_id ? "selected" : ""}>${escapeHtml(r.nombre)}</option>`
+    ).join("");
+
+    return `
+      <tr data-row="${row.id}">
+        <td>
+          <select class="form-select form-select-sm" data-k="rubro_id">${rubroOptions}</select>
+        </td>
+        <td><input class="form-control form-control-sm" data-k="observacion" type="text"></td>
+        <td><input class="form-control form-control-sm text-end" data-k="beneficiarios" type="number" min="0" value="${row.beneficiarios ?? 0}"></td>
+        <td><input class="form-control form-control-sm text-end" data-k="veces" type="number" min="0" value="${row.veces ?? 0}"></td>
+        <td><input class="form-control form-control-sm text-end" data-k="valor_unitario" type="number" min="0" step="0.01" value="${row.valor_unitario ?? 0}"></td>
+        <td><input class="form-control form-control-sm text-end" data-k="costo_operativo_pct" type="number" min="0" step="0.01" value="${row.costo_operativo_pct ?? 0}"></td>
+        <td class="text-end">${money(row.valor_bruto)}</td>
+        <td class="text-end">${money(row.costo_operativo_val)}</td>
+        <td class="text-end fw-semibold">${money(row.valor_total)}</td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-outline-danger" data-del="${row.id}" type="button">X</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  // listeners edición (estilo excel)
+  tb.querySelectorAll("tr[data-row]").forEach(tr => {
+    const id = tr.dataset.row;
+
+    tr.querySelectorAll("[data-k]").forEach(ctrl => {
+      ctrl.addEventListener("change", async () => {
+        const k = ctrl.dataset.k;
+        let v = ctrl.value;
+
+        if (["beneficiarios", "veces"].includes(k)) v = parseInt(v, 10) || 0;
+        if (["valor_unitario", "costo_operativo_pct"].includes(k)) v = parseFloat(v) || 0;
+
+        await updatePresupuestoItem(id, { [k]: v });
+      });
+    });
+
+    tr.querySelector("[data-del]")?.addEventListener("click", () => deletePresupuestoItem(id));
+  });
+
+  // suma total actividad
+  const sum = cachePresupuesto.reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
+  document.getElementById("sumActividad").textContent = money(sum);
+}
+async function updatePresupuestoItem(id, patch) {
+  const { error } = await supabaseClient
+    .from("presupuesto_item")
+    .update(patch)
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  // recargar para traer los calculados (valor_bruto/total)
+  await loadPresupuestoActividad(actividadActivaId);
+}
+
+async function deletePresupuestoItem(id) {
+  const ok = confirm("¿Borrar esta fila de presupuesto?");
+  if (!ok) return;
+
+  const { error } = await supabaseClient.from("presupuesto_item").delete().eq("id", id);
+  if (error) {
+    console.error(error);
+    return;
+  }
+  await loadPresupuestoActividad(actividadActivaId);
+}
+
+async function addPresupuestoItem() {
+  try {
+    if (!actividadActivaId) {
+      alert("Selecciona una actividad antes de agregar un rubro.");
+      return;
+    }
+
+    if (!cacheRubros || cacheRubros.length === 0) {
+      alert("No hay rubros en el catálogo.");
+      return;
+    }
+
+    const firstRubro = cacheRubros[0];
+
+    const nextOrden =
+      (cachePresupuesto && cachePresupuesto.length)
+        ? Math.max(...cachePresupuesto.map(x => x.orden || 0)) + 1
+        : 1;
+
+    const payload = {
+      actividad_id: actividadActivaId,
+      rubro_id: firstRubro.id,
+      beneficiarios: 0,
+      veces: 0,
+      valor_unitario: 0,
+      costo_operativo_pct: 0,
+      orden: nextOrden
+    };
+
+    console.log("INSERT presupuesto_item:", payload);
+
+    const { data, error } = await supabaseClient
+      .from("presupuesto_item")
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log("INSERT OK:", data);
+
+    await loadPresupuestoActividad(actividadActivaId);
+
+  } catch (e) {
+    console.error("addPresupuestoItem ERROR:", e);
+    alert("Error agregando fila: " + (e.message || e));
+  }
+}
+
+
 
 init();
