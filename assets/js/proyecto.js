@@ -980,7 +980,7 @@ async function loadPresupuestoActividad(actividadId) {
     .from("presupuesto_item")
     .select(`
       id, actividad_id, rubro_id, beneficiarios, veces, valor_unitario, costo_operativo_pct,
-      valor_bruto, costo_operativo_val, valor_total, orden,observaciones, created_at
+      valor_bruto, costo_operativo_val, valor_total, orden, observaciones, created_at
     `)
     .eq("actividad_id", actividadId)
     .order("orden", { ascending: true })
@@ -1021,8 +1021,9 @@ function renderPresupuestoGrid() {
         <td>
           <select class="form-select form-select-sm" data-k="rubro_id">${rubroOptions}</select>
         </td>
-        <td><input class="form-control form-control-sm" data-k="observacion" type="text"></td>
-        <td><input class="form-control form-control-sm text-end" data-k="beneficiarios" type="number" min="0" value="${row.beneficiarios ?? 0}"></td>
+        <td><input class="form-control form-control-sm text-start" data-k="observaciones" type="text" value="${row.observaciones ?? ""}"></td>
+       
+        <td><input class="form-control form-control-sm" data-k="beneficiarios" type="number" min="0" value="${row.beneficiarios ?? 0}"></td>
         <td><input class="form-control form-control-sm text-end" data-k="veces" type="number" min="0" value="${row.veces ?? 0}"></td>
         <td><input class="form-control form-control-sm text-end" data-k="valor_unitario" type="number" min="0" step="0.01" value="${row.valor_unitario ?? 0}"></td>
         <td><input class="form-control form-control-sm text-end" data-k="costo_operativo_pct" type="number" min="0" step="0.01" value="${row.costo_operativo_pct ?? 0}"></td>
@@ -1108,6 +1109,7 @@ async function addPresupuestoItem() {
     const payload = {
       actividad_id: actividadActivaId,
       rubro_id: firstRubro.id,
+      observaciones:"Detalle rubro",
       beneficiarios: 0,
       veces: 0,
       valor_unitario: 0,
