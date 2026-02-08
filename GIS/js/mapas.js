@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarTableroGeoJSON(); // ✅ cargar al iniciar
     cargarMapabaseGeoJSON()
     cargarFamiliasLinguisticas();
+    cargarLenguasComoCapas();  
 
 });
 
@@ -207,7 +208,7 @@ async function cargarFamiliasLinguisticas() {
                     opacity: 0.95,
                     fillColor: familiasColors[fam],
                     fillOpacity: 0.20,
-                    pane:"pane2"
+                    pane: "pane2"
                 }),
                 onEachFeature: (feature, layer) => {
                     const f = normalizarFamilia(feature?.properties?.Familia);
@@ -276,5 +277,106 @@ function crearControlFamilias(familias) {
     };
 
     return ctrl;
+}
+
+let controlLenguas = null;
+let familiasLenguasLayers = {}; // { "Arawak": L.LayerGroup, ... }
+let coloresFamiliaLenguas = {}; // { "Arawak": "#xxxxxx", ... }
+async function cargarLenguasComoCapas() {
+    const url = "../GIS/Layers/Lenguas.json"; // ajusta ruta
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`No se pudo cargar ${url} (HTTP ${resp.status})`);
+    const arr = await resp.json(); // array de lenguas
+
+    // 1) familia -> color (puedes reusar tu paleta)
+    const familias = [...new Set(arr.map(x => (x.familia || "Sin familia").trim()))]
+        .sort((a, b) => a.localeCompare(b));
+
+    const palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"];
+    coloresFamiliaLenguas = {};
+    familias.forEach((f, i) => coloresFamiliaLenguas[f] = palette[i % palette.length]);
+
+    // 2) construir un layerGroup por familia (con circleMarkers)
+    // limpiar anteriores si existen
+    for (const f in familiasLenguasLayers) {
+        if (map.hasLayer(familiasLenguasLayers[f])) map.removeLayer(familiasLenguasLayers[f]);
+    }
+    familiasLenguasLayers = {};
+
+    for (const fam of familias) {
+        familiasLenguasLayers[fam] = L.layerGroup([], { pane: "pane4" });
+    }
+
+    for (const lengua of arr) {
+        const nombre = lengua.nombre || "Sin nombre";
+        const iso = lengua.iso || "";
+        const fam = (lengua.familia || "Sin familia").trim();
+        const pobl = lengua.poblacion_aprox ?? null;
+        const color = coloresFamiliaLenguas[fam] || "#444";
+
+        if (!Array.isArray(lengua.lugares)) continue;
+
+        for (const lugar of lengua.lugares) {
+            const lat = Number(lugar.lat);
+            const lng = Number(lugar.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+            const m = L.circleMarker([lat, lng], {
+                pane: "pane4",
+                radius: 6,
+                color,
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.8
+            }).bindPopup(`
+        <div style="min-width:240px">
+          <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(nombre)}</div>
+          <div><b>ISO:</b> ${escapeHtml(iso)}</div>
+          <div><b>Familia:</b> ${escapeHtml(fam)}</div>
+          ${pobl !== null ? `<div><b>Población aprox:</b> ${Number(pobl).toLocaleString("es-CO")}</div>` : ""}
+          <hr style="margin:8px 0">
+          <div><b>Lugar:</b> ${escapeHtml(lugar.nombre || "")}</div>
+          <div style="font-size:12px" class="text-muted">(${lat.toFixed(4)}, ${lng.toFixed(4)})</div>
+        </div>
+      `);
+
+            // meter en la capa de su familia
+            familiasLenguasLayers[fam].addLayer(m);
+        }
+    }
+
+    // 3) Crear control Leaflet (aparte, a la izquierda)
+    if (controlLenguas) controlLenguas.remove();
+
+    // overlays con etiqueta + color
+    const overlays = {};
+    for (const fam of familias) {
+        const c = coloresFamiliaLenguas[fam];
+        overlays[`<span class="legend-dot" style="background:${c}"></span>${escapeHtml(fam)}`] = familiasLenguasLayers[fam];
+    }
+
+    controlLenguas = L.control.layers(
+        {},          // base layers
+        overlays,    // overlays (familias)
+        { collapsed: false, position: "topleft" }
+    );
+    controlLenguas.addTo(map);
+
+    // 4) Mostrar por defecto todas (o comenta esto si quieres que inicien apagadas)
+    for (const fam of familias) {
+        familiasLenguasLayers[fam].addTo(map);
+    }
+
+    // 5) aplicar clase para scroll al control
+    setTimeout(() => {
+        const el = controlLenguas.getContainer();
+        el.classList.add("leaflet-control-lenguajes");
+    }, 0);
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
 }
 

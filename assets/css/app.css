@@ -32,3 +32,21 @@
 .cursor-app{
   cursor: pointer;
 }
+
+/* Control Leaflet con scroll */
+.leaflet-control-lenguajes .leaflet-control-layers-overlays{
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+/* Item con color a la izquierda */
+.legend-dot{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  margin-right:6px;
+  border:1px solid rgba(0,0,0,.25);
+  vertical-align: middle;
+}
