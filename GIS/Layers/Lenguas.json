@@ -1,0 +1,690 @@
+[
+  {
+    "nombre": "Palenquero",
+    "iso": "pln",
+    "familia": "Criolla",
+    "poblacion_aprox": 3500,
+    "lugares": [
+      { "nombre": "San Basilio de Palenque, Bolívar", "lat": 10.1031, "lng": -75.1408 }
+    ]
+  },
+  {
+    "nombre": "Kriol",
+    "iso": "icr",
+    "familia": "Criolla",
+    "poblacion_aprox": 25000,
+    "lugares": [
+      { "nombre": "San Andrés Isla", "lat": 12.5833, "lng": -81.7000 },
+      { "nombre": "Providencia", "lat": 13.3500, "lng": -81.3667 }
+    ]
+  },
+  {
+    "nombre": "Romaní (Shib)",
+    "iso": "rom",
+    "familia": "Indoeuropea",
+    "poblacion_aprox": 5000,
+    "lugares": [
+      { "nombre": "Kumpania Bogotá", "lat": 4.6097, "lng": -74.0817 },
+      { "nombre": "Kumpania Girón", "lat": 7.0667, "lng": -73.1667 },
+      { "nombre": "Kumpania Envigado", "lat": 6.1759, "lng": -75.5840 }
+    ]
+  },
+  {
+    "nombre": "Wayuunaiki",
+    "iso": "guc",
+    "familia": "Arawak",
+    "poblacion_aprox": 300000,
+    "lugares": [
+      { "nombre": "Uribia, La Guajira", "lat": 11.7100, "lng": -72.2600 },
+      { "nombre": "Manaure, La Guajira", "lat": 11.7700, "lng": -72.4500 },
+      { "nombre": "Maicao, La Guajira", "lat": 11.3700, "lng": -72.2400 }
+    ]
+  },
+  {
+    "nombre": "Ikün (Arhuaco)",
+    "iso": "arh",
+    "familia": "Chibcha",
+    "poblacion_aprox": 22000,
+    "lugares": [
+      { "nombre": "Nabusímake, Cesar", "lat": 10.7400, "lng": -73.6300 },
+      { "nombre": "Pueblo Bello, Cesar", "lat": 10.4100, "lng": -73.5800 }
+    ]
+  },
+  {
+    "nombre": "Kogui (Kagaba)",
+    "iso": "kog",
+    "familia": "Chibcha",
+    "poblacion_aprox": 15000,
+    "lugares": [
+      { "nombre": "Sierra Nevada, Magdalena", "lat": 10.9700, "lng": -73.7400 }
+    ]
+  },
+  {
+    "nombre": "Damana (Wiwa)",
+    "iso": "amb",
+    "familia": "Chibcha",
+    "poblacion_aprox": 6000,
+    "lugares": [
+      { "nombre": "San Juan del Cesar, La Guajira", "lat": 10.7600, "lng": -73.0000 }
+    ]
+  },
+  {
+    "nombre": "Kankuamo",
+    "iso": "kyz",
+    "familia": "Chibcha",
+    "poblacion_aprox": 12000,
+    "lugares": [
+      { "nombre": "Atánquez, Cesar", "lat": 10.6000, "lng": -73.3500 }
+    ]
+  },
+  {
+    "nombre": "Yukpa",
+    "iso": "yup",
+    "familia": "Caribe",
+    "poblacion_aprox": 4700,
+    "lugares": [
+      { "nombre": "Serranía del Perijá, Cesar", "lat": 10.1000, "lng": -73.0000 }
+    ]
+  },
+  {
+    "nombre": "Ette Taara (Chimila)",
+    "iso": "cbi",
+    "familia": "Chibcha",
+    "poblacion_aprox": 1600,
+    "lugares": [
+      { "nombre": "Sabanas de San Ángel, Magdalena", "lat": 10.0300, "lng": -74.2200 }
+    ]
+  },
+  {
+    "nombre": "Uwa (Tunebo)",
+    "iso": "tuf",
+    "familia": "Chibcha",
+    "poblacion_aprox": 7500,
+    "lugares": [
+      { "nombre": "Güicán, Boyacá", "lat": 6.4600, "lng": -72.4100 },
+      { "nombre": "Saravena, Arauca", "lat": 6.9500, "lng": -71.8700 }
+    ]
+  },
+  {
+    "nombre": "Barí Ara",
+    "iso": "mot",
+    "familia": "Chibcha",
+    "poblacion_aprox": 5900,
+    "lugares": [
+      { "nombre": "Tibú, Norte de Santander", "lat": 8.6400, "lng": -72.7300 }
+    ]
+  },
+
+  {
+    "nombre": "Nasa Yuwe",
+    "iso": "pab",
+    "familia": "Aislada/Nasa",
+    "poblacion_aprox": 150000,
+    "lugares": [
+      { "nombre": "Toribío, Cauca", "lat": 2.9583, "lng": -76.2722 },
+      { "nombre": "Paéz (Belalcázar), Cauca", "lat": 2.6450, "lng": -75.9930 },
+      { "nombre": "La Plata, Huila", "lat": 2.3872, "lng": -75.8911 },
+      { "nombre": "Planadas, Tolima", "lat": 3.1930, "lng": -75.6450 }
+    ]
+  },
+  {
+    "nombre": "Namtrik (Misak)",
+    "iso": "gum",
+    "familia": "Barbacoa",
+    "poblacion_aprox": 21000,
+    "lugares": [
+      { "nombre": "Guambía, Silvia, Cauca", "lat": 2.6564, "lng": -76.3831 },
+      { "nombre": "Piendamó, Cauca", "lat": 2.6420, "lng": -76.5280 }
+    ]
+  },
+  {
+    "nombre": "Embera Katío",
+    "iso": "cto",
+    "familia": "Chocó",
+    "poblacion_aprox": 38000,
+    "lugares": [
+      { "nombre": "Tierralta (Alto Sinú), Córdoba", "lat": 8.1700, "lng": -76.0600 },
+      { "nombre": "Riosucio, Chocó", "lat": 7.4411, "lng": -77.1186 },
+      { "nombre": "Ituango, Antioquia", "lat": 7.1710, "lng": -75.7640 }
+    ]
+  },
+  {
+    "nombre": "Embera Chamí",
+    "iso": "cmi",
+    "familia": "Chocó",
+    "poblacion_aprox": 29000,
+    "lugares": [
+      { "nombre": "Pueblo Rico, Risaralda", "lat": 5.2340, "lng": -76.0350 },
+      { "nombre": "Mistrató, Risaralda", "lat": 5.2970, "lng": -75.8850 },
+      { "nombre": "Jardín, Antioquia", "lat": 5.5990, "lng": -75.8190 }
+    ]
+  },
+  {
+    "nombre": "Eperara Siapidara",
+    "iso": "sai",
+    "familia": "Chocó",
+    "poblacion_aprox": 4500,
+    "lugares": [
+      { "nombre": "Olaya Herrera, Nariño", "lat": 2.3360, "lng": -78.3300 },
+      { "nombre": "Guapi, Cauca", "lat": 2.5700, "lng": -77.8850 }
+    ]
+  },
+  {
+    "nombre": "Wounaan (Maach Noan)",
+    "iso": "noa",
+    "familia": "Chocó",
+    "poblacion_aprox": 10500,
+    "lugares": [
+      { "nombre": "Litoral del San Juan, Chocó", "lat": 4.2000, "lng": -77.4000 },
+      { "nombre": "Buenaventura, Valle del Cauca", "lat": 3.8800, "lng": -77.0300 }
+    ]
+  },
+  {
+    "nombre": "Awapit (Awá)",
+    "iso": "awa",
+    "familia": "Barbacoa",
+    "poblacion_aprox": 25000,
+    "lugares": [
+      { "nombre": "Ricaurte, Nariño", "lat": 1.2110, "lng": -77.9860 },
+      { "nombre": "Barbacoas, Nariño", "lat": 1.6720, "lng": -78.1720 },
+      { "nombre": "Tumaco, Nariño", "lat": 1.8000, "lng": -78.7500 }
+    ]
+  },
+  {
+    "nombre": "Tule (Gunaadule)",
+    "iso": "gun",
+    "familia": "Chibcha",
+    "poblacion_aprox": 2000,
+    "lugares": [
+      { "nombre": "Caimán Nuevo, Turbo, Antioquia", "lat": 8.1650, "lng": -76.7450 },
+      { "nombre": "Arquía, Unguía, Chocó", "lat": 8.0440, "lng": -77.1350 }
+    ]
+  },
+  {
+    "nombre": "Kamëntsá (Kamsá)",
+    "iso": "kbh",
+    "familia": "Aislada",
+    "poblacion_aprox": 5500,
+    "lugares": [
+      { "nombre": "Valle de Sibundoy, Putumayo", "lat": 1.2150, "lng": -76.9210 }
+    ]
+  },
+  {
+    "nombre": "Inga",
+    "iso": "inb",
+    "familia": "Quechua",
+    "poblacion_aprox": 19000,
+    "lugares": [
+      { "nombre": "Santiago, Putumayo", "lat": 1.1480, "lng": -77.0050 },
+      { "nombre": "Mocoa, Putumayo", "lat": 1.1470, "lng": -76.6480 },
+      { "nombre": "Aponte, Nariño", "lat": 1.5730, "lng": -77.0540 }
+    ]
+  },
+  {
+    "nombre": "Cofán (A'ingae)",
+    "iso": "con",
+    "familia": "Aislada",
+    "poblacion_aprox": 1800,
+    "lugares": [
+      { "nombre": "Valle del Guamuez, Putumayo", "lat": 0.4020, "lng": -76.8900 },
+      { "nombre": "San Miguel, Putumayo", "lat": 0.3440, "lng": -76.9100 }
+    ]
+  },
+  {
+    "nombre": "Sikuani (Guahibo)",
+    "iso": "guh",
+    "familia": "Guahibo",
+    "poblacion_aprox": 23000,
+    "lugares": [
+      { "nombre": "Puerto Gaitán, Meta", "lat": 4.3130, "lng": -71.5030 },
+      { "nombre": "Cumaribo, Vichada", "lat": 4.4410, "lng": -69.8010 },
+      { "nombre": "Paz de Ariporo, Casanare", "lat": 5.8930, "lng": -71.8960 }
+    ]
+  },
+  {
+    "nombre": "Cuiba (Wamonae)",
+    "iso": "cui",
+    "familia": "Guahibo",
+    "poblacion_aprox": 2900,
+    "lugares": [
+      { "nombre": "Orocué, Casanare", "lat": 4.7930, "lng": -71.3350 },
+      { "nombre": "Pazos de Ariporo, Casanare", "lat": 6.1300, "lng": -71.1500 }
+    ]
+  },
+  {
+    "nombre": "Hitnü (Macaguán)",
+    "iso": "hit",
+    "familia": "Guahibo",
+    "poblacion_aprox": 650,
+    "lugares": [
+      { "nombre": "Araquita, Arauca", "lat": 7.0270, "lng": -71.4330 },
+      { "nombre": "Fortul, Arauca", "lat": 6.7870, "lng": -71.7820 }
+    ]
+  },
+  {
+    "nombre": "Guayabero (Jiw)",
+    "iso": "guo",
+    "familia": "Guahibo",
+    "poblacion_aprox": 2200,
+    "lugares": [
+      { "nombre": "San José del Guaviare, Guaviare", "lat": 2.5680, "lng": -72.6450 },
+      { "nombre": "Puerto Concordia, Meta", "lat": 2.6280, "lng": -72.7560 }
+    ]
+  },
+  {
+    "nombre": "Sáliba",
+    "iso": "slb",
+    "familia": "Sáliba-Piaroa",
+    "poblacion_aprox": 1300,
+    "lugares": [
+      { "nombre": "Orocué, Casanare", "lat": 4.7930, "lng": -71.3350 }
+    ]
+  },
+  {
+    "nombre": "Piaroa (Wothuha)",
+    "iso": "pid",
+    "familia": "Sáliba-Piaroa",
+    "poblacion_aprox": 850,
+    "lugares": [
+      { "nombre": "Cumaribo, Vichada", "lat": 4.4410, "lng": -67.8500 }
+    ]
+  },
+  {
+    "nombre": "Puinave (Wãnsüjut)",
+    "iso": "pui",
+    "familia": "Aislada/Puinave",
+    "poblacion_aprox": 7500,
+    "lugares": [
+      { "nombre": "Inírida, Guainía", "lat": 3.8650, "lng": -67.9230 },
+      { "nombre": "Ríos Inírida y Guaviare", "lat": 3.5000, "lng": -68.5000 }
+    ]
+  },
+  {
+    "nombre": "Piapoco (Déjà)",
+    "iso": "pio",
+    "familia": "Arawak",
+    "poblacion_aprox": 5200,
+    "lugares": [
+      { "nombre": "Puerto Inírida, Guainía", "lat": 3.8650, "lng": -67.9230 },
+      { "nombre": "Mapiripán, Meta", "lat": 2.8910, "lng": -71.5130 }
+    ]
+  },
+  {
+    "nombre": "Achagua",
+    "iso": "aca",
+    "familia": "Arawak",
+    "poblacion_aprox": 450,
+    "lugares": [
+      { "nombre": "Puerto López, Meta", "lat": 4.0840, "lng": -72.9560 }
+    ]
+  },
+  {
+    "nombre": "Nukak",
+    "iso": "mzh",
+    "familia": "Maku",
+    "poblacion_aprox": 600,
+    "lugares": [
+      { "nombre": "Selvas del Guaviare", "lat": 2.5600, "lng": -71.7000 },
+      { "nombre": "San José del Guaviare", "lat": 2.5680, "lng": -72.6450 }
+    ]
+  },
+  {
+    "nombre": "Tinigua",
+    "iso": "tit",
+    "familia": "Aislada",
+    "poblacion_aprox": 1,
+    "lugares": [
+      { "nombre": "La Macarena, Meta", "lat": 2.1830, "lng": -73.7840 }
+    ]
+  },
+  {
+    "nombre": "Tikuna",
+    "iso": "tca",
+    "familia": "Aislada",
+    "poblacion_aprox": 40000,
+    "lugares": [
+      { "nombre": "Leticia, Amazonas", "lat": -4.2122, "lng": -69.9406 },
+      { "nombre": "Puerto Nariño, Amazonas", "lat": -3.7711, "lng": -70.3600 }
+    ]
+  },
+  {
+    "nombre": "Uitoto (Muruí-Muinane)",
+    "iso": "huu",
+    "familia": "Bora-Witoto",
+    "poblacion_aprox": 7500,
+    "lugares": [
+      { "nombre": "La Chorrera, Amazonas", "lat": -1.4444, "lng": -72.7833 },
+      { "nombre": "Puerto Leguízamo, Putumayo", "lat": -0.1930, "lng": -74.7770 }
+    ]
+  },
+  {
+    "nombre": "Tucano (Dahseyé)",
+    "iso": "tuo",
+    "familia": "Tucano",
+    "poblacion_aprox": 7000,
+    "lugares": [
+      { "nombre": "Mitú, Vaupés", "lat": 1.2500, "lng": -70.2300 },
+      { "nombre": "Río Vaupés", "lat": 1.0000, "lng": -70.0000 }
+    ]
+  },
+  {
+    "nombre": "Kubeo",
+    "iso": "cub",
+    "familia": "Tucano",
+    "poblacion_aprox": 8500,
+    "lugares": [
+      { "nombre": "Río Kuduyarí, Vaupés", "lat": 1.2900, "lng": -70.2800 }
+    ]
+  },
+  {
+    "nombre": "Curripaco",
+    "iso": "kpc",
+    "familia": "Arawak",
+    "poblacion_aprox": 8000,
+    "lugares": [
+      { "nombre": "Inírida, Guainía", "lat": 3.8650, "lng": -67.9230 },
+      { "nombre": "Río Isana", "lat": 2.0000, "lng": -69.0000 }
+    ]
+  },
+  {
+    "nombre": "Bora",
+    "iso": "boa",
+    "familia": "Bora-Witoto",
+    "poblacion_aprox": 1000,
+    "lugares": [
+      { "nombre": "Río Igara-Paraná, Amazonas", "lat": -1.5000, "lng": -71.8000 }
+    ]
+  },
+  {
+    "nombre": "Yukuna",
+    "iso": "ycn",
+    "familia": "Arawak",
+    "poblacion_aprox": 1100,
+    "lugares": [
+      { "nombre": "Río Mirití-Paraná, Amazonas", "lat": -1.1000, "lng": -70.9000 }
+    ]
+  },
+  {
+    "nombre": "Miraña",
+    "iso": "mmz",
+    "familia": "Bora-Witoto",
+    "poblacion_aprox": 300,
+    "lugares": [
+      { "nombre": "Río Caquetá, Amazonas", "lat": -1.4500, "lng": -71.2000 }
+    ]
+  },
+  {
+    "nombre": "Cocama",
+    "iso": "cod",
+    "familia": "Tupí",
+    "poblacion_aprox": 2000,
+    "lugares": [
+      { "nombre": "Ronda, Amazonas", "lat": -3.9500, "lng": -70.1500 }
+    ]
+  },
+  {
+    "nombre": "Yagua",
+    "iso": "yad",
+    "familia": "Peba-Yagua",
+    "poblacion_aprox": 400,
+    "lugares": [
+      { "nombre": "Leticia, Amazonas", "lat": -4.2122, "lng": -69.9406 }
+    ]
+  },
+  {
+    "nombre": "Andoque",
+    "iso": "ano",
+    "familia": "Aislada",
+    "poblacion_aprox": 600,
+    "lugares": [
+      { "nombre": "Araracuara, Caquetá", "lat": -0.6000, "lng": -72.4000 }
+    ]
+  },
+  {
+    "nombre": "Desano",
+    "iso": "des",
+    "familia": "Tucano",
+    "poblacion_aprox": 2100,
+    "lugares": [
+      { "nombre": "Río Papurí, Vaupés", "lat": 0.5500, "lng": -70.1500 }
+    ]
+  },
+  {
+    "nombre": "Wanano (Kotiria)",
+    "iso": "gvc",
+    "familia": "Tucano",
+    "poblacion_aprox": 1600,
+    "lugares": [
+      { "nombre": "Río Vaupés, frontera con Brasil", "lat": 1.1000, "lng": -69.6000 }
+    ]
+  },
+  {
+    "nombre": "Piratapuyo (Wa'ikhana)",
+    "iso": "pir",
+    "familia": "Tucano",
+    "poblacion_aprox": 650,
+    "lugares": [
+      { "nombre": "Río Papurí, Vaupés", "lat": 0.4000, "lng": -70.2000 }
+    ]
+  },
+  {
+    "nombre": "Tatuyo",
+    "iso": "tav",
+    "familia": "Tucano",
+    "poblacion_aprox": 450,
+    "lugares": [
+      { "nombre": "Río Pirá-Paraná, Vaupés", "lat": 0.2500, "lng": -70.5500 }
+    ]
+  },
+  {
+    "nombre": "Tuyuca",
+    "iso": "tuy",
+    "familia": "Tucano",
+    "poblacion_aprox": 640,
+    "lugares": [
+      { "nombre": "Río Tiquié, Vaupés", "lat": 0.1500, "lng": -70.1000 }
+    ]
+  },
+  {
+    "nombre": "Barasano (Pãnerã)",
+    "iso": "bsn",
+    "familia": "Tucano",
+    "poblacion_aprox": 400,
+    "lugares": [
+      { "nombre": "Río Pirá-Paraná, Vaupés", "lat": 0.1000, "lng": -70.8000 }
+    ]
+  },
+  {
+    "nombre": "Yurutí",
+    "iso": "yui",
+    "familia": "Tucano",
+    "poblacion_aprox": 450,
+    "lugares": [
+      { "nombre": "Río Yi, Vaupés", "lat": 0.7500, "lng": -70.6500 }
+    ]
+  },
+  {
+    "nombre": "Siriano",
+    "iso": "sri",
+    "familia": "Tucano",
+    "poblacion_aprox": 750,
+    "lugares": [
+      { "nombre": "Río Paca, Vaupés", "lat": 0.6500, "lng": -70.4500 }
+    ]
+  },
+  {
+    "nombre": "Karapana",
+    "iso": "cbc",
+    "familia": "Tucano",
+    "poblacion_aprox": 410,
+    "lugares": [
+      { "nombre": "Caño Ti, Vaupés", "lat": 0.8500, "lng": -70.9000 }
+    ]
+  },
+  {
+    "nombre": "Tanimuca",
+    "iso": "tnc",
+    "familia": "Tucano",
+    "poblacion_aprox": 400,
+    "lugares": [
+      { "nombre": "Río Guacayá, Amazonas", "lat": -1.0500, "lng": -70.8500 }
+    ]
+  },
+  {
+    "nombre": "Macuna",
+    "iso": "myy",
+    "familia": "Tucano",
+    "poblacion_aprox": 1000,
+    "lugares": [
+      { "nombre": "Río Apaporis, Amazonas", "lat": -0.6500, "lng": -70.7000 }
+    ]
+  },
+  {
+    "nombre": "Yuhup",
+    "iso": "yuh",
+    "familia": "Maku",
+    "poblacion_aprox": 450,
+    "lugares": [
+      { "nombre": "Río Apaporis, Vaupés", "lat": 1.1500, "lng": -70.2500 }
+    ]
+  },
+  {
+    "nombre": "Kakua",
+    "iso": "knd",
+    "familia": "Maku",
+    "poblacion_aprox": 300,
+    "lugares": [
+      { "nombre": "Río Vaupés, Vaupés", "lat": 1.2500, "lng": -70.1500 }
+    ]
+  },
+  {
+    "nombre": "Nonuya",
+    "iso": "noj",
+    "familia": "Bora-Witoto",
+    "poblacion_aprox": 20,
+    "lugares": [
+      { "nombre": "Puerto Santander, Amazonas", "lat": -0.8500, "lng": -72.0500 }
+    ]
+  },
+  {
+    "nombre": "Ocaina",
+    "iso": "oca",
+    "familia": "Bora-Witoto",
+    "poblacion_aprox": 150,
+    "lugares": [
+      { "nombre": "Río Igara-Paraná, Amazonas", "lat": -1.9500, "lng": -71.5500 }
+    ]
+  },
+  {
+    "nombre": "Muinane",
+    "iso": "bmr",
+    "familia": "Bora-Witoto",
+    "poblacion_aprox": 200,
+    "lugares": [
+      { "nombre": "Río Cahuinarí, Amazonas", "lat": -1.2500, "lng": -71.2500 }
+    ]
+  },
+  {
+    "nombre": "Carijona",
+    "iso": "cbd",
+    "familia": "Caribe",
+    "poblacion_aprox": 50,
+    "lugares": [
+      { "nombre": "Puerto Nare, Guaviare", "lat": 1.5500, "lng": -72.6000 }
+    ]
+  },
+   {
+    "nombre": "Pisamira (Yuremá)",
+    "iso": "pir",
+    "familia": "Tucano",
+    "poblacion_aprox": 60,
+    "lugares": [
+      { "nombre": "Caño Pisamira, Vaupés", "lat": 1.1500, "lng": -70.1500 }
+    ]
+  },
+  {
+    "nombre": "Tariano",
+    "iso": "trn",
+    "familia": "Arawak",
+    "poblacion_aprox": 15,
+    "lugares": [
+      { "nombre": "Bajo Papurí, Vaupés", "lat": 0.4500, "lng": -69.8500 }
+    ]
+  },
+  {
+    "nombre": "Taiwano (Eduria)",
+    "iso": "tan",
+    "familia": "Tucano",
+    "poblacion_aprox": 200,
+    "lugares": [
+      { "nombre": "Río Pirá-Paraná, Vaupés", "lat": 0.1500, "lng": -70.6500 }
+    ]
+  },
+  {
+    "nombre": "Yaruro (Pumé)",
+    "iso": "yae",
+    "familia": "Aislada",
+    "poblacion_aprox": 150,
+    "lugares": [
+      { "nombre": "Río Arauca, frontera con Venezuela", "lat": 6.9500, "lng": -71.1000 }
+    ]
+  },
+  {
+    "nombre": "Mapoyo",
+    "iso": "mcg",
+    "familia": "Caribe",
+    "poblacion_aprox": 10,
+    "lugares": [
+      { "nombre": "Puerto Carreño, Vichada", "lat": 6.1800, "lng": -67.4800 }
+    ]
+  },
+  {
+    "nombre": "Koreguaje (Korebaju)",
+    "iso": "coe",
+    "familia": "Tucano",
+    "poblacion_aprox": 2200,
+    "lugares": [
+      { "nombre": "Río Orteguaza, Caquetá", "lat": 1.2500, "lng": -75.4000 },
+      { "nombre": "Milán, Caquetá", "lat": 1.2900, "lng": -75.5100 }
+    ]
+  },
+  {
+    "nombre": "Siona (Gat’iyaa)",
+    "iso": "snn",
+    "familia": "Tucano",
+    "poblacion_aprox": 2600,
+    "lugares": [
+      { "nombre": "Puerto Asís, Putumayo", "lat": 0.5000, "lng": -76.5000 },
+      { "nombre": "Río Putumayo", "lat": 0.1500, "lng": -76.2000 }
+    ]
+  },
+  {
+    "nombre": "Yucuna (Kamejeya)",
+    "iso": "ycn",
+    "familia": "Arawak",
+    "poblacion_aprox": 1100,
+    "lugares": [
+      { "nombre": "Río Mirití-Paraná, Amazonas", "lat": -1.1500, "lng": -70.9500 }
+    ]
+  },
+  {
+    "nombre": "Tanimuca-Retuarã",
+    "iso": "tnc",
+    "familia": "Tucano",
+    "poblacion_aprox": 450,
+    "lugares": [
+      { "nombre": "Río Guacayá, Amazonas", "lat": -1.1000, "lng": -70.8000 }
+    ]
+  },
+  {
+    "nombre": "Cabiyarí (Kawiyarí)",
+    "iso": "cbb",
+    "familia": "Arawak",
+    "poblacion_aprox": 300,
+    "lugares": [
+      { "nombre": "Río Cananarí, Vaupés", "lat": 0.2000, "lng": -70.7500 }
+    ]
+  }
+
+
+]

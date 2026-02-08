@@ -151,7 +151,7 @@ async function loadAreasGrupos() {
                 : `<div class="text-muted small px-2 py-2">Sin grupos</div>`;
 
             return `
-      <div class="accordion-item">
+        <div class="accordion-item">
         <h2 class="accordion-header">
           <button class="accordion-button ${idx === 0 ? "" : "collapsed"}" type="button"
                   data-bs-toggle="collapse" data-bs-target="#${collapseId}">
@@ -164,6 +164,21 @@ async function loadAreasGrupos() {
           </div>
         </div>
       </div>
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button ${idx === 0 ? "" : "collapsed"}" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#colapseApp">
+            APLICACIONES
+          </button>
+        </h2>
+        <div id="colapseApp" class="accordion-collapse "show" : ""}">
+          <div class="list-group list-group-flush">
+            <li class="list-group-item cursor-app" id="itemMapas">
+                <i class="bi bi-globe-americas me-4"></i>Mapas
+            </li>
+          </div>
+        </div>
+      </div>
     `;
         })
         .join("");
@@ -172,6 +187,9 @@ async function loadAreasGrupos() {
 
     document.getElementById("navAreasDesktop").innerHTML = acc;
     document.getElementById("navAreasMobile").innerHTML = acc;
+    document.getElementById("itemMapas").onclick=()=>{
+         window.location.href = "./GIS/mapas.html";
+    }
 
     document.querySelectorAll("[data-grupo-id]").forEach((el) => {
         el.addEventListener("click", async () => {
