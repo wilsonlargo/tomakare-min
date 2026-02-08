@@ -67,6 +67,98 @@ let cacheActividades = [];
 let cacheProductos = [];
 
 /* =========================
+   Medios de verificación (Producto)
+========================= */
+let mvDraft = [];
+
+function renderMVRows() {
+  const tb = document.getElementById("mvRows");
+  if (!tb) return; // si aún no pegaste el bloque HTML, no revienta
+
+  if (!Array.isArray(mvDraft) || mvDraft.length === 0) {
+    tb.innerHTML = `<tr><td colspan="5" class="text-muted">Sin soportes aún.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = mvDraft
+    .map(
+      (m, i) => `
+    <tr>
+      <td>
+        <input class="form-control form-control-sm" data-mv="label" data-i="${i}" value="${escapeHtml(m.label ?? "")}">
+      </td>
+<td>
+  <div class="input-group input-group-sm">
+    <input
+      class="form-control"
+      data-mv="url"
+      data-i="${i}"
+      value="${escapeHtml(m.url ?? "")}"
+      placeholder="https://..."
+    >
+    <button
+      class="btn btn-outline-secondary"
+      type="button"
+      data-mv-open="${i}"
+      title="Abrir enlace"
+      ${!m.url ? "disabled" : ""}
+    >
+      <i class="bi bi-box-arrow-up-right"></i>
+    </button>
+  </div>
+</td>
+
+      <td>
+        <select class="form-select form-select-sm" data-mv="tipo" data-i="${i}">
+          ${["acta", "asistencia","factura", "informe", "foto","diapositiva","carpeta digital", "audio", "video", "otro"]
+          .map((t) => `<option value="${t}" ${m.tipo === t ? "selected" : ""}>${t}</option>`)
+          .join("")}
+        </select>
+      </td>
+      <td>
+        <input type="date" class="form-control form-control-sm" data-mv="date" data-i="${i}" value="${escapeHtml(m.date ?? "")}">
+      </td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-danger" type="button" data-mv-del="${i}">X</button>
+      </td>
+    </tr>
+  `
+    )
+    .join("");
+
+  // cambios
+  tb.querySelectorAll("[data-mv]").forEach((el) => {
+    const handler = () => {
+      const i = parseInt(el.dataset.i, 10);
+      const k = el.dataset.mv;
+      mvDraft[i][k] = el.value;
+    };
+    el.addEventListener("input", handler);
+    el.addEventListener("change", handler);
+  });
+
+  // borrar
+  tb.querySelectorAll("[data-mv-del]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.mvDel, 10);
+      mvDraft.splice(i, 1);
+      renderMVRows();
+    });
+  });
+
+  // abrir enlace por fila
+  tb.querySelectorAll("[data-mv-open]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.mvOpen, 10);
+      const url = mvDraft[i]?.url;
+      if (!url) return;
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+  });
+
+}
+
+/* =========================
    PROYECTO / DEP / MUN
 ========================= */
 async function loadDepartamentos() {
@@ -169,12 +261,13 @@ async function guardarCambios() {
     const nombre = document.getElementById("inpNombre")?.value?.trim();
     if (!nombre) return setMsg("El nombre del proyecto es obligatorio.", "warning");
 
-    const tipo = document.getElementById("inpTipoPoblacion")?.value || "";
+    const tipoP = document.getElementById("inpTipoPoblacion")?.value || "";
     const nomPob = document.getElementById("inpNombrePoblacion")?.value?.trim() || "";
-    if ((tipo && !nomPob) || (!tipo && nomPob)) {
+    if ((tipoP && !nomPob) || (!tipoP && nomPob)) {
       return setMsg("Completa ambos: Tipo de población y Nombre población/pueblo.", "warning");
     }
 
+    // ✅ SOLO campos de proyecto (NO mezclar con producto/actividad)
     const payload = {
       vigencia: parseInt(document.getElementById("inpVigencia")?.value, 10) || null,
       nombre,
@@ -188,23 +281,11 @@ async function guardarCambios() {
       municipio: document.getElementById("inpMunicipio")?.value || null,
       lugar: document.getElementById("inpLugar")?.value?.trim() || null,
 
-      tipo_poblacion: tipo || null,
+      tipo_poblacion: tipoP || null,
       nombre_poblacion: nomPob || null,
-
-      actividad_id: actividadActivaId,
-      tipo,
-      estado,
-      orden,
-      descripcion,
-      indicador,
-      medios_verificacion
     };
 
-    const { error } = await supabaseClient
-      .from("proyecto")
-      .update(payload)
-      .eq("id", proyectoId);
-
+    const { error } = await supabaseClient.from("proyecto").update(payload).eq("id", proyectoId);
     if (error) throw error;
 
     document.getElementById("lblProyecto").textContent = nombre;
@@ -237,8 +318,7 @@ async function loadObjetivos() {
   hideMsgOAP();
   cacheObjetivos = data || [];
 
-  // Si el objetivo seleccionado ya no existe, limpiar selección
-  if (objetivoActivoId && !cacheObjetivos.find(o => o.id === objetivoActivoId)) {
+  if (objetivoActivoId && !cacheObjetivos.find((o) => o.id === objetivoActivoId)) {
     objetivoActivoId = null;
     actividadActivaId = null;
   }
@@ -257,7 +337,7 @@ function openModalObjetivoNew() {
 }
 
 function openModalObjetivoEdit(id) {
-  const obj = cacheObjetivos.find(x => x.id === id);
+  const obj = cacheObjetivos.find((x) => x.id === id);
   if (!obj) return;
 
   hideMsgModal("msgObjModal");
@@ -304,7 +384,6 @@ async function deleteObjetivo(id) {
     const { error } = await supabaseClient.from("objetivo").delete().eq("id", id);
     if (error) throw error;
 
-    // reset selecciones si aplica
     if (objetivoActivoId === id) {
       objetivoActivoId = null;
       actividadActivaId = null;
@@ -332,35 +411,38 @@ function renderObjetivosList() {
     return;
   }
 
-  box.innerHTML = cacheObjetivos.map(o => {
-    const active = (o.id === objetivoActivoId) ? "active" : "";
-    const label = `${o.codigo ? o.codigo + " — " : ""}${o.nombre || ""}`;
-    return `
+  box.innerHTML = cacheObjetivos
+    .map((o) => {
+      const active = o.id === objetivoActivoId ? "active" : "";
+      const label = `${o.codigo ? o.codigo + " — " : ""}${o.nombre || ""}`;
+      return `
       <div class="list-group-item d-flex justify-content-between align-items-start ${active}" data-obj="${o.id}">
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Orden: ${o.orden ?? ""}</div>
         </div>
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-primary" data-obj-edit="${o.id}" type="button">
-          <i class="bi bi-pencil-fill"></i>
+          <button class="btn btn-sm btn-outline-primary" data-obj-edit="${o.id}" type="button" title="Editar">
+            <i class="bi bi-pencil-fill"></i>
           </button>
-          <button class="btn btn-sm btn-outline-danger" data-obj-del="${o.id}" type="button"><i class="bi bi-trash3-fill"></i></button>
+          <button class="btn btn-sm btn-outline-danger" data-obj-del="${o.id}" type="button" title="Borrar">
+            <i class="bi bi-trash3-fill"></i>
+          </button>
         </div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 
-  // seleccionar objetivo
-  box.querySelectorAll("[data-obj]").forEach(item => {
+  box.querySelectorAll("[data-obj]").forEach((item) => {
     item.addEventListener("click", async (e) => {
       if (e.target.closest("button")) return;
 
       objetivoActivoId = item.dataset.obj;
       actividadActivaId = null;
+
       cacheProductos = [];
       renderProductosList();
-
       syncActionButtons();
 
       await loadActividades(objetivoActivoId);
@@ -368,14 +450,14 @@ function renderObjetivosList() {
     });
   });
 
-  // editar/borrar objetivo
-  box.querySelectorAll("[data-obj-edit]").forEach(btn => {
+  box.querySelectorAll("[data-obj-edit]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       openModalObjetivoEdit(btn.dataset.objEdit);
     });
   });
-  box.querySelectorAll("[data-obj-del]").forEach(btn => {
+
+  box.querySelectorAll("[data-obj-del]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       deleteObjetivo(btn.dataset.objDel);
@@ -413,7 +495,7 @@ async function loadActividades(objetivoId) {
   hideMsgOAP();
   cacheActividades = data || [];
 
-  if (actividadActivaId && !cacheActividades.find(a => a.id === actividadActivaId)) {
+  if (actividadActivaId && !cacheActividades.find((a) => a.id === actividadActivaId)) {
     actividadActivaId = null;
     cacheProductos = [];
     renderProductosList();
@@ -436,7 +518,7 @@ function openModalActividadNew() {
 }
 
 function openModalActividadEdit(id) {
-  const act = cacheActividades.find(x => x.id === id);
+  const act = cacheActividades.find((x) => x.id === id);
   if (!act) return;
 
   hideMsgModal("msgActModal");
@@ -516,27 +598,30 @@ function renderActividadesList() {
     return;
   }
 
-  box.innerHTML = cacheActividades.map(a => {
-    const active = (a.id === actividadActivaId) ? "active" : "";
-    const label = `${a.codigo ? a.codigo + " — " : ""}${a.nombre || ""}`;
-    return `
+  box.innerHTML = cacheActividades
+    .map((a) => {
+      const active = a.id === actividadActivaId ? "active" : "";
+      const label = `${a.codigo ? a.codigo + " — " : ""}${a.nombre || ""}`;
+      return `
       <div class="list-group-item d-flex justify-content-between align-items-start ${active}" data-act="${a.id}">
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Estado: ${escapeHtml(a.estado ?? "Pendiente")} · Orden: ${a.orden ?? ""}</div>
         </div>
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-primary" data-act-edit="${a.id}" type="button">
-          <i class="bi bi-pencil-fill"></i>
+          <button class="btn btn-sm btn-outline-primary" data-act-edit="${a.id}" type="button" title="Editar">
+            <i class="bi bi-pencil-fill"></i>
           </button>
-          <button class="btn btn-sm btn-outline-danger" data-act-del="${a.id}" type="button"><i class="bi bi-trash3-fill"></i></button>
+          <button class="btn btn-sm btn-outline-danger" data-act-del="${a.id}" type="button" title="Borrar">
+            <i class="bi bi-trash3-fill"></i>
+          </button>
         </div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 
-  // seleccionar actividad
-  box.querySelectorAll("[data-act]").forEach(item => {
+  box.querySelectorAll("[data-act]").forEach((item) => {
     item.addEventListener("click", async (e) => {
       if (e.target.closest("button")) return;
 
@@ -548,14 +633,14 @@ function renderActividadesList() {
     });
   });
 
-  // editar/borrar actividad
-  box.querySelectorAll("[data-act-edit]").forEach(btn => {
+  box.querySelectorAll("[data-act-edit]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       openModalActividadEdit(btn.dataset.actEdit);
     });
   });
-  box.querySelectorAll("[data-act-del]").forEach(btn => {
+
+  box.querySelectorAll("[data-act-del]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       deleteActividad(btn.dataset.actDel);
@@ -567,7 +652,6 @@ function renderActividadesList() {
 
 /* =========================
    PRODUCTOS (CRUD + LISTA)
-   (tabla: producto con descripcion/tipo/estado/orden)
 ========================= */
 async function loadProductos(actividadId) {
   if (!actividadId) {
@@ -606,16 +690,19 @@ function openModalProductoNew() {
   document.getElementById("prodEstado").value = "Pendiente";
   document.getElementById("prodOrden").value = 1;
   document.getElementById("prodDescripcion").value = "";
-  new bootstrap.Modal(document.getElementById("modalProducto")).show();
 
-  document.getElementById("prodIndicador").value = "";
+  // opcionales
+  const ind = document.getElementById("prodIndicador");
+  if (ind) ind.value = "";
+
   mvDraft = [];
   renderMVRows();
 
+  new bootstrap.Modal(document.getElementById("modalProducto")).show();
 }
 
 function openModalProductoEdit(id) {
-  const p = cacheProductos.find(x => x.id === id);
+  const p = cacheProductos.find((x) => x.id === id);
   if (!p) return;
 
   hideMsgModal("msgProdModal");
@@ -625,12 +712,14 @@ function openModalProductoEdit(id) {
   document.getElementById("prodEstado").value = p.estado ?? "Pendiente";
   document.getElementById("prodOrden").value = p.orden ?? 1;
   document.getElementById("prodDescripcion").value = p.descripcion ?? "";
-  new bootstrap.Modal(document.getElementById("modalProducto")).show();
 
-  document.getElementById("prodIndicador").value = p.indicador ?? "";
+  const ind = document.getElementById("prodIndicador");
+  if (ind) ind.value = p.indicador ?? "";
+
   mvDraft = Array.isArray(p.medios_verificacion) ? p.medios_verificacion : [];
   renderMVRows();
 
+  new bootstrap.Modal(document.getElementById("modalProducto")).show();
 }
 
 async function saveProducto() {
@@ -644,9 +733,30 @@ async function saveProducto() {
     const orden = parseInt(document.getElementById("prodOrden").value, 10) || 1;
     const descripcion = document.getElementById("prodDescripcion").value.trim();
 
-    if (!descripcion) return setMsgModal("msgProdModal", "La descripción del producto es obligatoria.", "warning");
+    if (!descripcion) {
+      return setMsgModal("msgProdModal", "La descripción del producto es obligatoria.", "warning");
+    }
 
-    const payload = { actividad_id: actividadActivaId, tipo, estado, orden, descripcion };
+    const indicador = document.getElementById("prodIndicador")?.value?.trim() || null;
+
+    const medios_verificacion = (mvDraft || [])
+      .filter((x) => (x.url && x.url.trim()) || (x.label && x.label.trim()))
+      .map((x) => ({
+        label: (x.label || "").trim(),
+        url: (x.url || "").trim(),
+        tipo: (x.tipo || "otro").trim(),
+        date: (x.date || "").trim(),
+      }));
+
+    const payload = {
+      actividad_id: actividadActivaId,
+      tipo,
+      estado,
+      orden,
+      descripcion,
+      indicador,
+      medios_verificacion,
+    };
 
     const { error } = id
       ? await supabaseClient.from("producto").update(payload).eq("id", id)
@@ -660,18 +770,6 @@ async function saveProducto() {
     console.error("PROD SAVE ERROR:", e);
     setMsgModal("msgProdModal", "❌ " + (e.message || e), "danger");
   }
-
-  const indicador = document.getElementById("prodIndicador").value.trim() || null;
-
-  const medios_verificacion = (mvDraft || [])
-    .filter(x => (x.url && x.url.trim()) || (x.label && x.label.trim()))
-    .map(x => ({
-      label: (x.label || "").trim(),
-      url: (x.url || "").trim(),
-      tipo: (x.tipo || "otro").trim(),
-      date: (x.date || "").trim()
-    }));
-
 }
 
 async function deleteProducto(id) {
@@ -704,31 +802,56 @@ function renderProductosList() {
     return;
   }
 
-  box.innerHTML = cacheProductos.map(p => {
-    const label = p.descripcion || "";
-    const meta = `Tipo: ${p.tipo ?? "—"} · Estado: ${p.estado ?? "Pendiente"} · Orden: ${p.orden ?? ""}`;
-    return `
+  box.innerHTML = cacheProductos
+    .map((p) => {
+      const label = p.descripcion || "";
+      const meta = `Tipo: ${p.tipo ?? "—"} · Estado: ${p.estado ?? "Pendiente"} · Orden: ${p.orden ?? ""}`;
+
+      const firstUrl =
+        Array.isArray(p.medios_verificacion) && p.medios_verificacion.length
+          ? p.medios_verificacion[0].url || ""
+          : "";
+
+      const btnVer = firstUrl
+        ? `<button class="btn btn-sm btn-outline-secondary" data-prod-open="${escapeHtml(firstUrl)}" type="button" title="Ver soporte">
+             <i class="bi bi-box-arrow-up-right"></i>
+           </button>`
+        : "";
+
+      return `
       <div class="list-group-item d-flex justify-content-between align-items-start">
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">${escapeHtml(meta)}</div>
         </div>
+
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-primary" data-prod-edit="${p.id}" type="button">
-          <i class="bi bi-pencil-fill"></i>
+          ${btnVer}
+          <button class="btn btn-sm btn-outline-primary" data-prod-edit="${p.id}" type="button" title="Editar">
+            <i class="bi bi-pencil-fill"></i>
           </button>
-          
-          <button class="btn btn-sm btn-outline-danger" data-prod-del="${p.id}" type="button"><i class="bi bi-trash3-fill"></i></button>
+          <button class="btn btn-sm btn-outline-danger" data-prod-del="${p.id}" type="button" title="Borrar">
+            <i class="bi bi-trash3-fill"></i>
+          </button>
         </div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 
-  box.querySelectorAll("[data-prod-edit]").forEach(btn => {
+  box.querySelectorAll("[data-prod-open]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = btn.dataset.prodOpen || "";
+      if (!url) return;
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+  });
+
+  box.querySelectorAll("[data-prod-edit]").forEach((btn) => {
     btn.addEventListener("click", () => openModalProductoEdit(btn.dataset.prodEdit));
   });
 
-  box.querySelectorAll("[data-prod-del]").forEach(btn => {
+  box.querySelectorAll("[data-prod-del]").forEach((btn) => {
     btn.addEventListener("click", () => deleteProducto(btn.dataset.prodDel));
   });
 
@@ -785,9 +908,14 @@ async function init() {
   document.getElementById("btnNuevoProducto")?.addEventListener("click", openModalProductoNew);
   document.getElementById("btnGuardarProducto")?.addEventListener("click", saveProducto);
 
+  // Soportes MV
+  document.getElementById("btnAddMV")?.addEventListener("click", () => {
+    mvDraft.push({ label: "", url: "", tipo: "otro", date: "" });
+    renderMVRows();
+  });
+
   syncActionButtons();
 
-  // Carga inicial
   try {
     await loadProyecto();
   } catch (e) {
@@ -798,61 +926,6 @@ async function init() {
   await loadObjetivos();
   renderActividadesList();
   renderProductosList();
-
-  let mvDraft = []; // soportes del modal
-
-  function renderMVRows() {
-    const tb = document.getElementById("mvRows");
-    if (!tb) return;
-
-    if (!mvDraft.length) {
-      tb.innerHTML = `<tr><td colspan="5" class="text-muted">Sin soportes aún.</td></tr>`;
-      return;
-    }
-
-    tb.innerHTML = mvDraft.map((m, i) => `
-    <tr>
-      <td><input class="form-control form-control-sm" data-mv="label" data-i="${i}" value="${escapeHtml(m.label ?? "")}"></td>
-      <td><input class="form-control form-control-sm" data-mv="url" data-i="${i}" value="${escapeHtml(m.url ?? "")}" placeholder="https://..."></td>
-      <td>
-        <select class="form-select form-select-sm" data-mv="tipo" data-i="${i}">
-          ${["acta", "asistencia", "informe", "foto", "audio", "video", "otro"].map(t =>
-      `<option value="${t}" ${m.tipo === t ? "selected" : ""}>${t}</option>`
-    ).join("")}
-        </select>
-      </td>
-      <td><input type="date" class="form-control form-control-sm" data-mv="date" data-i="${i}" value="${escapeHtml(m.date ?? "")}"></td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-danger" type="button" data-mv-del="${i}">X</button>
-      </td>
-    </tr>
-  `).join("");
-
-    tb.querySelectorAll("[data-mv]").forEach(el => {
-      const handler = () => {
-        const i = parseInt(el.dataset.i, 10);
-        const k = el.dataset.mv;
-        mvDraft[i][k] = el.value;
-      };
-      el.addEventListener("input", handler);
-      el.addEventListener("change", handler);
-    });
-
-    tb.querySelectorAll("[data-mv-del]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const i = parseInt(btn.dataset.mvDel, 10);
-        mvDraft.splice(i, 1);
-        renderMVRows();
-      });
-    });
-  }
-  document.getElementById("btnAddMV")?.addEventListener("click", () => {
-    mvDraft.push({ label: "", url: "", tipo: "otro", date: "" });
-    renderMVRows();
-  });
-
-
-
 }
 
 init();
