@@ -325,10 +325,10 @@ async function cargarLenguasComoCapas() {
             const m = L.circleMarker([lat, lng], {
                 pane: "pane4",
                 radius: 6,
-                color,
+                color:"black",
                 weight: 2,
                 fillColor: color,
-                fillOpacity: 0.8
+                fillOpacity: 1
             }).bindPopup(`
         <div style="min-width:240px">
           <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(nombre)}</div>
@@ -337,7 +337,6 @@ async function cargarLenguasComoCapas() {
           ${pobl !== null ? `<div><b>Población aprox:</b> ${Number(pobl).toLocaleString("es-CO")}</div>` : ""}
           <hr style="margin:8px 0">
           <div><b>Lugar:</b> ${escapeHtml(lugar.nombre || "")}</div>
-          <div style="font-size:12px" class="text-muted">(${lat.toFixed(4)}, ${lng.toFixed(4)})</div>
         </div>
       `);
 
