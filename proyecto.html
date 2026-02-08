@@ -1,10 +1,12 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Editar proyecto</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
 </head>
 
 <body class="bg-light">
@@ -12,7 +14,7 @@
     <div class="container-fluid">
       <span class="navbar-brand mb-0 h1">Editar proyecto</span>
       <div class="ms-auto d-flex gap-2">
-        <button id="btnLogout" class="btn btn-outline-danger btn-sm">Salir</button>
+        <button id="btnLogout" class="btn btn-outline-danger btn-sm" type="button">Salir</button>
       </div>
     </div>
   </nav>
@@ -20,6 +22,7 @@
   <div class="container py-3">
     <div id="msg" class="alert" style="display:none;"></div>
 
+    <!-- Card Proyecto -->
     <div class="card shadow-sm">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <div>
@@ -53,7 +56,8 @@
 
           <div class="col-12">
             <label class="form-label">Objetivo (síntesis)</label>
-            <textarea id="inpObjetivo" class="form-control" rows="3" placeholder="Describe el objetivo general..."></textarea>
+            <textarea id="inpObjetivo" class="form-control" rows="3"
+              placeholder="Describe el objetivo general..."></textarea>
           </div>
 
           <div class="col-md-4">
@@ -109,6 +113,214 @@
         </div>
       </div>
     </div>
+
+    <!-- Card Jerárquica: Objetivos / Actividades / Productos -->
+    <div class="card shadow-sm mt-3">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between">
+        <strong>Objetivos · Actividades · Productos</strong>
+        <div class="d-flex gap-2">
+          <button id="btnNuevoObjetivo" class="btn btn-sm btn-outline-primary" type="button">+ Objetivo</button>
+        </div>
+      </div>
+
+      <div class="card-body">
+
+        <div id="msgOAP" class="alert" style="display:none;"></div>
+
+        <!-- Objetivos -->
+        <div class="mb-3">
+          <div class="text-muted small mb-2">1) Selecciona un objetivo</div>
+          <div id="listObjetivos" class="list-group"></div>
+          <div class="container text-end">
+            <button id="btnNuevaActividad" class="btn btn-sm btn-outline-success" type="button" disabled>+
+              Actividad</button>
+          </div>
+        </div>
+
+        <!-- Actividades -->
+        <div class="mb-3">
+          <div class="text-muted small mb-2">2) Actividades del objetivo seleccionado</div>
+          <div id="listActividades" class="list-group">
+            <div class="text-muted small">Selecciona un objetivo…</div>
+          </div>
+          <div class="container text-end">
+            <button id="btnNuevoProducto" class="btn btn-sm btn-outline-warning" type="button" disabled>+
+              Producto</button>
+          </div>
+        </div>
+
+        <!-- Productos -->
+        <div>
+          <div class="text-muted small mb-2">3) Productos de la actividad seleccionada</div>
+          <div id="listProductos" class="list-group">
+            <div class="text-muted small">Selecciona una actividad…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal Objetivo -->
+  <div class="modal fade" id="modalObjetivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="lblModalObjetivo">Nuevo objetivo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div id="msgObjModal" class="alert" style="display:none;"></div>
+          <input type="hidden" id="objId">
+
+          <div class="mb-2">
+            <label class="form-label">Código</label>
+            <input id="objCodigo" class="form-control" placeholder="Ej: OG-01 o OE-01">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Orden</label>
+            <input id="objOrden" type="number" class="form-control" min="1" value="1">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Nombre del objetivo</label>
+            <textarea id="objNombre" class="form-control" rows="4" placeholder="Escribe el objetivo..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+          <button id="btnGuardarObjetivo" class="btn btn-primary" type="button">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Actividad -->
+  <div class="modal fade" id="modalActividad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="lblModalActividad">Nueva actividad</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div id="msgActModal" class="alert" style="display:none;"></div>
+          <input type="hidden" id="actId">
+
+          <div class="mb-2">
+            <label class="form-label">Código</label>
+            <input id="actCodigo" class="form-control" placeholder="Ej: A-01">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Orden</label>
+            <input id="actOrden" type="number" class="form-control" min="1" value="1">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Estado</label>
+            <select id="actEstado" class="form-select">
+              <option value="Pendiente">Pendiente</option>
+              <option value="En proceso">En proceso</option>
+              <option value="Finalizada">Finalizada</option>
+            </select>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Nombre de la actividad</label>
+            <textarea id="actNombre" class="form-control" rows="4" placeholder="Describe la actividad..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+          <button id="btnGuardarActividad" class="btn btn-primary" type="button">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Producto -->
+  <div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="lblModalProducto">Nuevo producto</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div id="msgProdModal" class="alert" style="display:none;"></div>
+          <input type="hidden" id="prodId">
+
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Tipo</label>
+              <input id="prodTipo" class="form-control" placeholder="Ej: Acta, Informe, Producto">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Estado</label>
+              <select id="prodEstado" class="form-select">
+                <option value="Pendiente">Pendiente</option>
+                <option value="En proceso">En proceso</option>
+                <option value="Entregado">Entregado</option>
+                <option value="Validado">Validado</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Orden</label>
+              <input id="prodOrden" type="number" class="form-control" min="1" value="1">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Descripción del producto</label>
+              <textarea id="prodDescripcion" class="form-control" rows="3"
+                placeholder="Describe el producto..."></textarea>
+            </div>
+
+            <div class="mt-2">
+              <label class="form-label">Indicador (opcional)</label>
+              <input id="prodIndicador" class="form-control" placeholder="Ej: # productos entregados, # actas, etc.">
+            </div>
+
+            <div class="mt-3">
+              <div class="d-flex align-items-center justify-content-between">
+                <label class="form-label mb-0">Medios de verificación (links / soportes)</label>
+                <button id="btnAddMV" type="button" class="btn btn-sm btn-outline-primary">+ Agregar</button>
+              </div>
+
+              <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width:220px;">Etiqueta</th>
+                      <th>URL</th>
+                      <th style="width:140px;">Tipo</th>
+                      <th style="width:140px;">Fecha</th>
+                      <th style="width:60px;" class="text-end">X</th>
+                    </tr>
+                  </thead>
+                  <tbody id="mvRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+          <button id="btnGuardarProducto" class="btn btn-primary" type="button">Guardar</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Scripts -->
@@ -118,4 +330,5 @@
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/proyecto.js"></script>
 </body>
+
 </html>
