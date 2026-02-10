@@ -418,7 +418,7 @@ function renderObjetivosList() {
       const active = o.id === objetivoActivoId ? "active" : "";
       const label = `${o.codigo ? o.codigo + " — " : ""}${o.nombre || ""}`;
       return `
-      <div class="list-group-item d-flex justify-content-between align-items-start ${active}" data-obj="${o.id}">
+      <div class="cursor-app bg-primary-subtle mb-1 list-group-item d-flex justify-content-between align-items-start ${active}" data-obj="${o.id}">
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Orden: ${o.orden ?? ""}</div>
@@ -608,7 +608,7 @@ function renderActividadesList() {
       const active = a.id === actividadActivaId ? "active" : "";
       const label = `${a.codigo ? a.codigo + " — " : ""}${a.nombre || ""}`;
       return `
-      <div class="list-group-item d-flex justify-content-between align-items-start ${active}" data-act="${a.id}">
+      <div class="bg-warning-subtle cursor-app mb-1 list-group-item d-flex justify-content-between align-items-start ${active}" data-act="${a.id}">
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Estado: ${escapeHtml(a.estado ?? "Pendiente")} · Orden: ${a.orden ?? ""}</div>
@@ -670,11 +670,10 @@ async function loadProductos(actividadId) {
 
   const { data, error } = await supabaseClient
     .from("producto")
-    .select("id, actividad_id, descripcion, tipo, estado, orden, indicador, medios_verificacion, created_at")
+    .select("id, actividad_id, descripcion, tipo, estado, orden, indicador, medios_verificacion, created_at,revisiones")
     .eq("actividad_id", actividadId)
     .order("orden", { ascending: true })
     .order("created_at", { ascending: true });
-
   if (error) {
     console.error("PROD LOAD ERROR:", error);
     setMsgOAP("❌ " + error.message, "danger");
@@ -698,6 +697,7 @@ function openModalProductoNew() {
   document.getElementById("prodEstado").value = "Pendiente";
   document.getElementById("prodOrden").value = 1;
   document.getElementById("prodDescripcion").value = "";
+  document.getElementById("prodRevision").value = "";
 
   // opcionales
   const ind = document.getElementById("prodIndicador");
@@ -720,6 +720,7 @@ function openModalProductoEdit(id) {
   document.getElementById("prodEstado").value = p.estado ?? "Pendiente";
   document.getElementById("prodOrden").value = p.orden ?? 1;
   document.getElementById("prodDescripcion").value = p.descripcion ?? "";
+  document.getElementById("prodRevision").value = p.revisiones ?? "";
 
   const ind = document.getElementById("prodIndicador");
   if (ind) ind.value = p.indicador ?? "";
@@ -740,6 +741,8 @@ async function saveProducto() {
     const estado = document.getElementById("prodEstado").value || "Pendiente";
     const orden = parseInt(document.getElementById("prodOrden").value, 10) || 1;
     const descripcion = document.getElementById("prodDescripcion").value.trim();
+    const revisiones = document.getElementById("prodRevision").value.trim();
+    console.log("productos",revisiones)
 
     if (!descripcion) {
       return setMsgModal("msgProdModal", "La descripción del producto es obligatoria.", "warning");
@@ -764,6 +767,7 @@ async function saveProducto() {
       descripcion,
       indicador,
       medios_verificacion,
+      revisiones,
     };
 
     const { error } = id
@@ -813,7 +817,7 @@ function renderProductosList() {
   box.innerHTML = cacheProductos
     .map((p) => {
       const label = p.descripcion || "";
-      const meta = `Tipo: ${p.tipo ?? "—"} · Estado: ${p.estado ?? "Pendiente"} · Orden: ${p.orden ?? ""}`;
+      const meta = `Estado: ${p.estado ?? "Pendiente"} · Revisión: ${p.revisiones ?? ""}`;
 
       const firstUrl =
         Array.isArray(p.medios_verificacion) && p.medios_verificacion.length
