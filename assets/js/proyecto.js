@@ -831,7 +831,7 @@ function renderProductosList() {
         : "";
 
       return `
-      <div class="list-group-item d-flex justify-content-between align-items-start">
+      <div class="cursor-app bg-body-secondary mb-1 list-group-item d-flex justify-content-between align-items-start">
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">${escapeHtml(meta)}</div>
@@ -1141,6 +1141,279 @@ async function addPresupuestoItem() {
   }
 }
 
+/* =========================
+       CONFIG
+       ========================= */
+    const RUBRO_HEADERS = ["Rubro", "Beneficiarios", "Veces", "Valor Unitario"];
+    const EXPECTED_COLS = RUBRO_HEADERS.length; // 4
+
+    /* =========================
+       UTILIDADES
+       ========================= */
+    function setMsg(html, type = "muted") {
+      const el = document.getElementById("importRubroMsg");
+      el.className = `small mt-2 text-${type}`;
+      el.innerHTML = html || "";
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+    function escapeAttr(s) { return escapeHtml(s).replace(/`/g, "&#096;"); }
+
+    /**
+     * Limpia valores numéricos pegados desde Excel/Sheets:
+     * - elimina $ y espacios
+     * - elimina separadores de miles (.) y (,)
+     * - convierte formato 1.234,56 -> 1234.56
+     */
+    function normalizeNumericCell(raw) {
+      let s = String(raw ?? "").trim();
+      if (!s) return "";
+
+      // quitar $ y espacios
+      s = s.replace(/\$/g, "").replace(/\s+/g, "");
+
+      // si NO parece número, devolver tal cual (para Rubro)
+      if (!/^-?[\d.,]+$/.test(s)) return s;
+
+      const hasDot = s.includes(".");
+      const hasComma = s.includes(",");
+
+      // 1.234,56 -> 1234.56
+      if (hasDot && hasComma) {
+        s = s.replace(/\./g, "");
+        s = s.replace(/,/g, ".");
+        return s;
+      }
+
+      // Si solo tiene puntos, el usuario pidió eliminar puntos (miles): 1.234 -> 1234
+      if (hasDot && !hasComma) {
+        return s.replace(/\./g, "");
+      }
+
+      // Si solo tiene comas: decidir decimal vs miles
+      if (!hasDot && hasComma) {
+        const parts = s.split(",");
+        // si es 12,5 o 12,50 => decimal
+        if (parts.length === 2 && parts[1].length <= 2) {
+          return parts[0].replace(/,/g, "") + "." + parts[1];
+        }
+        // si no, tratar como miles: 1,234,567 -> 1234567
+        return s.replace(/,/g, "");
+      }
+
+      return s; // solo dígitos
+    }
+
+    /**
+     * Parser TSV estricto: cada fila debe tener EXACTAMENTE 4 columnas.
+     * Ignora líneas vacías.
+     */
+    function parseTSVStrict(text, expectedCols) {
+      const clean = String(text ?? "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .trim();
+
+      if (!clean) return [];
+
+      const lines = clean.split("\n").filter(l => l.trim() !== "");
+      const rows = lines.map((line, idx) => {
+        const cols = line.split("\t");
+        if (cols.length !== expectedCols) {
+          throw new Error(`Fila ${idx + 1}: se esperaban ${expectedCols} columnas y llegaron ${cols.length}.`);
+        }
+        return cols;
+      });
+
+      // Si la primera fila es header (igual a nuestros encabezados), la removemos
+      const first = rows[0].map(c => String(c).trim().toLowerCase());
+      const expected = RUBRO_HEADERS.map(h => h.toLowerCase());
+      const isHeaderRow = first.every((v, i) => v === expected[i]);
+      return isHeaderRow ? rows.slice(1) : rows;
+    }
+
+    /* =========================
+       RENDER TABLA EDITABLE
+       ========================= */
+    function renderRubrosTable(rows) {
+      const tbl = document.getElementById("tblRubrosPreview");
+      const thead = tbl.querySelector("thead");
+      const tbody = tbl.querySelector("tbody");
+
+      // Header fijo
+      thead.innerHTML = `
+    <tr>
+      ${RUBRO_HEADERS.map(h => `<th class="text-nowrap">${escapeHtml(h)}</th>`).join("")}
+      <th style="width:1%;">Acción</th>
+    </tr>
+  `;
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `<tr><td class="text-muted" colspan="${EXPECTED_COLS + 1}">No hay filas.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map((r, rowIdx) => {
+        // Normalizar largo (aunque el parser ya lo valida)
+        const row = r.slice(0, EXPECTED_COLS);
+        while (row.length < EXPECTED_COLS) row.push("");
+
+        return `
+      <tr data-row="${rowIdx}">
+        ${row.map((cell, colIdx) => {
+          const isNumeric = (colIdx === 1 || colIdx === 2 || colIdx === 3); // Beneficiarios, Veces, Valor Unitario
+          const val = isNumeric ? normalizeNumericCell(cell) : String(cell ?? "").trim();
+          return `
+            <td>
+              <input
+                class="form-control form-control-sm"
+                type="${isNumeric ? "number" : "text"}"
+                ${isNumeric ? 'step="0.01" min="0"' : ""}
+                data-row="${rowIdx}"
+                data-col="${colIdx}"
+                value="${escapeAttr(val)}"
+              />
+            </td>
+          `;
+        }).join("")}
+        <td class="text-center">
+          <button class="btn btn-outline-danger btn-sm" type="button" data-action="del" data-row="${rowIdx}">
+            ✕
+          </button>
+        </td>
+      </tr>
+    `;
+      }).join("");
+    }
+
+    function collectRubrosFromTable() {
+      const tbl = document.getElementById("tblRubrosPreview");
+      const inputs = Array.from(tbl.querySelectorAll("tbody tr"));
+      return inputs.map(tr => {
+        const cells = Array.from(tr.querySelectorAll("input"));
+        const rubro = (cells[0]?.value ?? "").trim();
+        const beneficiarios = normalizeNumericCell(cells[1]?.value ?? "");
+        const veces = normalizeNumericCell(cells[2]?.value ?? "");
+        const valorUnitario = normalizeNumericCell(cells[3]?.value ?? "");
+
+        return {
+          rubro,
+          beneficiarios: beneficiarios === "" ? null : Number(beneficiarios),
+          veces: veces === "" ? null : Number(veces),
+          valor_unitario: valorUnitario === "" ? null : Number(valorUnitario),
+        };
+      });
+    }
+
+    function addEmptyRow() {
+      const current = collectRubrosAsRows();
+      current.push(["", "", "", ""]);
+      renderRubrosTable(current);
+    }
+
+    function collectRubrosAsRows() {
+      const data = collectRubrosFromTable();
+      return data.map(o => [
+        o.rubro ?? "",
+        (o.beneficiarios ?? "") + "",
+        (o.veces ?? "") + "",
+        (o.valor_unitario ?? "") + ""
+      ]);
+    }
+
+    /* =========================
+       ACCIONES: LEER PORTAPAPELES / PEGADO / LIMPIAR / EXPORTAR
+       ========================= */
+    async function buildFromClipboardRubros() {
+      setMsg("");
+      try {
+        const text = await navigator.clipboard.readText();
+        const rows = parseTSVStrict(text, EXPECTED_COLS);
+
+        // limpiar numéricos al construir
+        const cleaned = rows.map(r => ([
+          String(r[0] ?? "").trim(),
+          normalizeNumericCell(r[1]),
+          normalizeNumericCell(r[2]),
+          normalizeNumericCell(r[3]),
+        ]));
+
+        renderRubrosTable(cleaned);
+        setMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
+      } catch (e) {
+        console.error(e);
+        setMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
+      Usa el cuadro de pegado manual si es un tema de permisos.`, "danger");
+      }
+    }
+
+    function buildFromTextareaRubros() {
+      setMsg("");
+      try {
+        const text = document.getElementById("txtPegadoRubro").value || "";
+        const rows = parseTSVStrict(text, EXPECTED_COLS);
+        const cleaned = rows.map(r => ([
+          String(r[0] ?? "").trim(),
+          normalizeNumericCell(r[1]),
+          normalizeNumericCell(r[2]),
+          normalizeNumericCell(r[3]),
+        ]));
+        renderRubrosTable(cleaned);
+        setMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
+      } catch (e) {
+        setMsg(`Error: ${escapeHtml(e.message)}`, "danger");
+      }
+    }
+
+    function clearRubros() {
+      document.getElementById("txtPegadoRubro").value = "";
+      renderRubrosTable([]);
+      setMsg("Tabla limpiada.", "muted");
+    }
+
+    function exportRubrosJSON() {
+      const json = collectRubrosFromTable();
+      console.log("RUBROS JSON:", json);
+      setMsg("Exportado a consola (F12 → Console).", "success");
+    }
+
+    /* =========================
+       INIT (Bootstrap + listeners)
+       ========================= */
+    document.addEventListener("DOMContentLoaded", () => {
+      const modalEl = document.getElementById("modalImportRubro");
+      const modal = new bootstrap.Modal(modalEl);
+
+      document.getElementById("btnAbrirImportRubro").addEventListener("click", () => {
+        modal.show();
+        setMsg("");
+      });
+
+      document.getElementById("btnLeerClipboardRubro").addEventListener("click", buildFromClipboardRubros);
+      document.getElementById("btnConstruirDesdePegadoRubro").addEventListener("click", buildFromTextareaRubros);
+      document.getElementById("btnLimpiarTablaRubro").addEventListener("click", clearRubros);
+      document.getElementById("btnExportarRubrosJSON").addEventListener("click", exportRubrosJSON);
+      document.getElementById("btnAgregarFilaRubro").addEventListener("click", addEmptyRow);
+
+      // Delegación para eliminar fila
+      document.getElementById("tblRubrosPreview").addEventListener("click", (ev) => {
+        const btn = ev.target.closest("button[data-action='del']");
+        if (!btn) return;
+
+        const rowIndex = Number(btn.dataset.row);
+        const rows = collectRubrosAsRows();
+        rows.splice(rowIndex, 1);
+        renderRubrosTable(rows);
+        setMsg("Fila eliminada.", "muted");
+      });
+
+      // Render inicial con header fijo (sin filas)
+      renderRubrosTable([]);
+    });
 
 
 init();
