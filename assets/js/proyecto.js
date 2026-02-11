@@ -742,7 +742,7 @@ async function saveProducto() {
     const orden = parseInt(document.getElementById("prodOrden").value, 10) || 1;
     const descripcion = document.getElementById("prodDescripcion").value.trim();
     const revisiones = document.getElementById("prodRevision").value.trim();
-    console.log("productos",revisiones)
+    console.log("productos", revisiones)
 
     if (!descripcion) {
       return setMsgModal("msgProdModal", "La descripción del producto es obligatoria.", "warning");
@@ -1113,7 +1113,7 @@ async function addPresupuestoItem() {
     const payload = {
       actividad_id: actividadActivaId,
       rubro_id: firstRubro.id,
-      observaciones:"Detalle rubro",
+      observaciones: "Detalle rubro",
       beneficiarios: 0,
       veces: 0,
       valor_unitario: 0,
@@ -1141,133 +1141,183 @@ async function addPresupuestoItem() {
   }
 }
 
+async function pastePresupuestoItem(db) {
+  try {
+    if (!actividadActivaId) {
+      alert("Selecciona una actividad antes de agregar un rubro.");
+      return;
+    }
+
+    if (!cacheRubros || cacheRubros.length === 0) {
+      alert("No hay rubros en el catálogo.");
+      return;
+    }
+
+    const firstRubro = cacheRubros[0];
+
+    let oper = document.getElementById("inputOperativos").value
+    const nextOrden =
+      (cachePresupuesto && cachePresupuesto.length)
+        ? Math.max(...cachePresupuesto.map(x => x.orden || 0)) + 1
+        : 1;
+    const payload = {
+      actividad_id: actividadActivaId,
+      rubro_id: firstRubro.id,
+      observaciones: db.observaciones,
+      beneficiarios: db.beneficiarios,
+      veces: db.veces,
+      valor_unitario: db.valor_unitario,
+      costo_operativo_pct: oper,
+      orden: nextOrden
+    };
+
+    //console.log("INSERT presupuesto_item:", payload);
+
+    const { data, error } = await supabaseClient
+      .from("presupuesto_item")
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log("INSERT OK:", data);
+
+    await loadPresupuestoActividad(actividadActivaId);
+
+  } catch (e) {
+    console.error("addPresupuestoItem ERROR:", e);
+    alert("Error agregando fila: " + (e.message || e));
+  }
+}
+
 /* =========================
        CONFIG
        ========================= */
-    const RUBRO_HEADERS = ["Rubro", "Beneficiarios", "Veces", "Valor Unitario"];
-    const EXPECTED_COLS = RUBRO_HEADERS.length; // 4
+const RUBRO_HEADERS = ["Rubro", "Beneficiarios", "Veces", "Valor Unitario"];
+const EXPECTED_COLS = RUBRO_HEADERS.length; // 4
 
-    /* =========================
-       UTILIDADES
-       ========================= */
-    function setMsg(html, type = "muted") {
-      const el = document.getElementById("importRubroMsg");
-      el.className = `small mt-2 text-${type}`;
-      el.innerHTML = html || "";
+/* =========================
+   UTILIDADES
+   ========================= */
+function setMsg(html, type = "muted") {
+  const el = document.getElementById("importRubroMsg");
+  el.className = `small mt-2 text-${type}`;
+  el.innerHTML = html || "";
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+function escapeAttr(s) { return escapeHtml(s).replace(/`/g, "&#096;"); }
+
+/**
+ * Limpia valores numéricos pegados desde Excel/Sheets:
+ * - elimina $ y espacios
+ * - elimina separadores de miles (.) y (,)
+ * - convierte formato 1.234,56 -> 1234.56
+ */
+function normalizeNumericCell(raw) {
+  let s = String(raw ?? "").trim();
+  if (!s) return "";
+
+  // quitar $ y espacios
+  s = s.replace(/\$/g, "").replace(/\s+/g, "");
+
+  // si NO parece número, devolver tal cual (para Rubro)
+  if (!/^-?[\d.,]+$/.test(s)) return s;
+
+  const hasDot = s.includes(".");
+  const hasComma = s.includes(",");
+
+  // 1.234,56 -> 1234.56
+  if (hasDot && hasComma) {
+    s = s.replace(/\./g, "");
+    s = s.replace(/,/g, ".");
+    return s;
+  }
+
+  // Si solo tiene puntos, el usuario pidió eliminar puntos (miles): 1.234 -> 1234
+  if (hasDot && !hasComma) {
+    return s.replace(/\./g, "");
+  }
+
+  // Si solo tiene comas: decidir decimal vs miles
+  if (!hasDot && hasComma) {
+    const parts = s.split(",");
+    // si es 12,5 o 12,50 => decimal
+    if (parts.length === 2 && parts[1].length <= 2) {
+      return parts[0].replace(/,/g, "") + "." + parts[1];
     }
+    // si no, tratar como miles: 1,234,567 -> 1234567
+    return s.replace(/,/g, "");
+  }
 
-    function escapeHtml(s) {
-      return String(s ?? "")
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  return s; // solo dígitos
+}
+
+/**
+ * Parser TSV estricto: cada fila debe tener EXACTAMENTE 4 columnas.
+ * Ignora líneas vacías.
+ */
+function parseTSVStrict(text, expectedCols) {
+  const clean = String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+
+  if (!clean) return [];
+
+  const lines = clean.split("\n").filter(l => l.trim() !== "");
+  const rows = lines.map((line, idx) => {
+    const cols = line.split("\t");
+    if (cols.length !== expectedCols) {
+      throw new Error(`Fila ${idx + 1}: se esperaban ${expectedCols} columnas y llegaron ${cols.length}.`);
     }
-    function escapeAttr(s) { return escapeHtml(s).replace(/`/g, "&#096;"); }
+    return cols;
+  });
 
-    /**
-     * Limpia valores numéricos pegados desde Excel/Sheets:
-     * - elimina $ y espacios
-     * - elimina separadores de miles (.) y (,)
-     * - convierte formato 1.234,56 -> 1234.56
-     */
-    function normalizeNumericCell(raw) {
-      let s = String(raw ?? "").trim();
-      if (!s) return "";
+  // Si la primera fila es header (igual a nuestros encabezados), la removemos
+  const first = rows[0].map(c => String(c).trim().toLowerCase());
+  const expected = RUBRO_HEADERS.map(h => h.toLowerCase());
+  const isHeaderRow = first.every((v, i) => v === expected[i]);
+  return isHeaderRow ? rows.slice(1) : rows;
+}
 
-      // quitar $ y espacios
-      s = s.replace(/\$/g, "").replace(/\s+/g, "");
+/* =========================
+   RENDER TABLA EDITABLE
+   ========================= */
+function renderRubrosTable(rows) {
+  const tbl = document.getElementById("tblRubrosPreview");
+  const thead = tbl.querySelector("thead");
+  const tbody = tbl.querySelector("tbody");
 
-      // si NO parece número, devolver tal cual (para Rubro)
-      if (!/^-?[\d.,]+$/.test(s)) return s;
-
-      const hasDot = s.includes(".");
-      const hasComma = s.includes(",");
-
-      // 1.234,56 -> 1234.56
-      if (hasDot && hasComma) {
-        s = s.replace(/\./g, "");
-        s = s.replace(/,/g, ".");
-        return s;
-      }
-
-      // Si solo tiene puntos, el usuario pidió eliminar puntos (miles): 1.234 -> 1234
-      if (hasDot && !hasComma) {
-        return s.replace(/\./g, "");
-      }
-
-      // Si solo tiene comas: decidir decimal vs miles
-      if (!hasDot && hasComma) {
-        const parts = s.split(",");
-        // si es 12,5 o 12,50 => decimal
-        if (parts.length === 2 && parts[1].length <= 2) {
-          return parts[0].replace(/,/g, "") + "." + parts[1];
-        }
-        // si no, tratar como miles: 1,234,567 -> 1234567
-        return s.replace(/,/g, "");
-      }
-
-      return s; // solo dígitos
-    }
-
-    /**
-     * Parser TSV estricto: cada fila debe tener EXACTAMENTE 4 columnas.
-     * Ignora líneas vacías.
-     */
-    function parseTSVStrict(text, expectedCols) {
-      const clean = String(text ?? "")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        .trim();
-
-      if (!clean) return [];
-
-      const lines = clean.split("\n").filter(l => l.trim() !== "");
-      const rows = lines.map((line, idx) => {
-        const cols = line.split("\t");
-        if (cols.length !== expectedCols) {
-          throw new Error(`Fila ${idx + 1}: se esperaban ${expectedCols} columnas y llegaron ${cols.length}.`);
-        }
-        return cols;
-      });
-
-      // Si la primera fila es header (igual a nuestros encabezados), la removemos
-      const first = rows[0].map(c => String(c).trim().toLowerCase());
-      const expected = RUBRO_HEADERS.map(h => h.toLowerCase());
-      const isHeaderRow = first.every((v, i) => v === expected[i]);
-      return isHeaderRow ? rows.slice(1) : rows;
-    }
-
-    /* =========================
-       RENDER TABLA EDITABLE
-       ========================= */
-    function renderRubrosTable(rows) {
-      const tbl = document.getElementById("tblRubrosPreview");
-      const thead = tbl.querySelector("thead");
-      const tbody = tbl.querySelector("tbody");
-
-      // Header fijo
-      thead.innerHTML = `
+  // Header fijo
+  thead.innerHTML = `
     <tr>
       ${RUBRO_HEADERS.map(h => `<th class="text-nowrap">${escapeHtml(h)}</th>`).join("")}
       <th style="width:1%;">Acción</th>
     </tr>
   `;
 
-      if (!rows || rows.length === 0) {
-        tbody.innerHTML = `<tr><td class="text-muted" colspan="${EXPECTED_COLS + 1}">No hay filas.</td></tr>`;
-        return;
-      }
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = `<tr><td class="text-muted" colspan="${EXPECTED_COLS + 1}">No hay filas.</td></tr>`;
+    return;
+  }
 
-      tbody.innerHTML = rows.map((r, rowIdx) => {
-        // Normalizar largo (aunque el parser ya lo valida)
-        const row = r.slice(0, EXPECTED_COLS);
-        while (row.length < EXPECTED_COLS) row.push("");
+  tbody.innerHTML = rows.map((r, rowIdx) => {
+    // Normalizar largo (aunque el parser ya lo valida)
+    const row = r.slice(0, EXPECTED_COLS);
+    while (row.length < EXPECTED_COLS) row.push("");
 
-        return `
+    return `
       <tr data-row="${rowIdx}">
         ${row.map((cell, colIdx) => {
-          const isNumeric = (colIdx === 1 || colIdx === 2 || colIdx === 3); // Beneficiarios, Veces, Valor Unitario
-          const val = isNumeric ? normalizeNumericCell(cell) : String(cell ?? "").trim();
-          return `
+      const isNumeric = (colIdx === 1 || colIdx === 2 || colIdx === 3); // Beneficiarios, Veces, Valor Unitario
+      const val = isNumeric ? normalizeNumericCell(cell) : String(cell ?? "").trim();
+      return `
             <td>
               <input
                 class="form-control form-control-sm"
@@ -1279,7 +1329,7 @@ async function addPresupuestoItem() {
               />
             </td>
           `;
-        }).join("")}
+    }).join("")}
         <td class="text-center">
           <button class="btn btn-outline-danger btn-sm" type="button" data-action="del" data-row="${rowIdx}">
             ✕
@@ -1287,133 +1337,137 @@ async function addPresupuestoItem() {
         </td>
       </tr>
     `;
-      }).join("");
-    }
+  }).join("");
+}
 
-    function collectRubrosFromTable() {
-      const tbl = document.getElementById("tblRubrosPreview");
-      const inputs = Array.from(tbl.querySelectorAll("tbody tr"));
-      return inputs.map(tr => {
-        const cells = Array.from(tr.querySelectorAll("input"));
-        const rubro = (cells[0]?.value ?? "").trim();
-        const beneficiarios = normalizeNumericCell(cells[1]?.value ?? "");
-        const veces = normalizeNumericCell(cells[2]?.value ?? "");
-        const valorUnitario = normalizeNumericCell(cells[3]?.value ?? "");
+function collectRubrosFromTable() {
+  const tbl = document.getElementById("tblRubrosPreview");
+  const inputs = Array.from(tbl.querySelectorAll("tbody tr"));
+  return inputs.map(tr => {
+    const cells = Array.from(tr.querySelectorAll("input"));
+    const observaciones = (cells[0]?.value ?? "").trim();
+    const beneficiarios = normalizeNumericCell(cells[1]?.value ?? "");
+    const veces = normalizeNumericCell(cells[2]?.value ?? "");
+    const valor_unitario = normalizeNumericCell(cells[3]?.value ?? "");
 
-        return {
-          rubro,
-          beneficiarios: beneficiarios === "" ? null : Number(beneficiarios),
-          veces: veces === "" ? null : Number(veces),
-          valor_unitario: valorUnitario === "" ? null : Number(valorUnitario),
-        };
-      });
-    }
+    return {
+      observaciones,
+      beneficiarios: beneficiarios === "" ? null : Number(beneficiarios),
+      veces: veces === "" ? null : Number(veces),
+      valor_unitario: valor_unitario === "" ? null : Number(valor_unitario),
+    };
+  });
+}
 
-    function addEmptyRow() {
-      const current = collectRubrosAsRows();
-      current.push(["", "", "", ""]);
-      renderRubrosTable(current);
-    }
+function addEmptyRow() {
+  const current = collectRubrosAsRows();
+  current.push(["", "", "", ""]);
+  renderRubrosTable(current);
+}
 
-    function collectRubrosAsRows() {
-      const data = collectRubrosFromTable();
-      return data.map(o => [
-        o.rubro ?? "",
-        (o.beneficiarios ?? "") + "",
-        (o.veces ?? "") + "",
-        (o.valor_unitario ?? "") + ""
-      ]);
-    }
+function collectRubrosAsRows() {
+  const data = collectRubrosFromTable();
+  return data.map(o => [
+    o.observaciones ?? "",
+    (o.beneficiarios ?? "") + "",
+    (o.veces ?? "") + "",
+    (o.valor_unitario ?? "") + ""
+  ]);
+}
 
-    /* =========================
-       ACCIONES: LEER PORTAPAPELES / PEGADO / LIMPIAR / EXPORTAR
-       ========================= */
-    async function buildFromClipboardRubros() {
-      setMsg("");
-      try {
-        const text = await navigator.clipboard.readText();
-        const rows = parseTSVStrict(text, EXPECTED_COLS);
+/* =========================
+   ACCIONES: LEER PORTAPAPELES / PEGADO / LIMPIAR / EXPORTAR
+   ========================= */
+async function buildFromClipboardRubros() {
+  setMsg("");
+  try {
+    const text = await navigator.clipboard.readText();
+    const rows = parseTSVStrict(text, EXPECTED_COLS);
 
-        // limpiar numéricos al construir
-        const cleaned = rows.map(r => ([
-          String(r[0] ?? "").trim(),
-          normalizeNumericCell(r[1]),
-          normalizeNumericCell(r[2]),
-          normalizeNumericCell(r[3]),
-        ]));
+    // limpiar numéricos al construir
+    const cleaned = rows.map(r => ([
+      String(r[0] ?? "").trim(),
+      normalizeNumericCell(r[1]),
+      normalizeNumericCell(r[2]),
+      normalizeNumericCell(r[3]),
+    ]));
 
-        renderRubrosTable(cleaned);
-        setMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
-      } catch (e) {
-        console.error(e);
-        setMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
+    renderRubrosTable(cleaned);
+    setMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
+  } catch (e) {
+    console.error(e);
+    setMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
       Usa el cuadro de pegado manual si es un tema de permisos.`, "danger");
-      }
-    }
+  }
+}
 
-    function buildFromTextareaRubros() {
-      setMsg("");
-      try {
-        const text = document.getElementById("txtPegadoRubro").value || "";
-        const rows = parseTSVStrict(text, EXPECTED_COLS);
-        const cleaned = rows.map(r => ([
-          String(r[0] ?? "").trim(),
-          normalizeNumericCell(r[1]),
-          normalizeNumericCell(r[2]),
-          normalizeNumericCell(r[3]),
-        ]));
-        renderRubrosTable(cleaned);
-        setMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
-      } catch (e) {
-        setMsg(`Error: ${escapeHtml(e.message)}`, "danger");
-      }
-    }
+function buildFromTextareaRubros() {
+  setMsg("");
+  try {
+    const text = document.getElementById("txtPegadoRubro").value || "";
+    const rows = parseTSVStrict(text, EXPECTED_COLS);
+    const cleaned = rows.map(r => ([
+      String(r[0] ?? "").trim(),
+      normalizeNumericCell(r[1]),
+      normalizeNumericCell(r[2]),
+      normalizeNumericCell(r[3]),
+    ]));
+    renderRubrosTable(cleaned);
+    setMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
+  } catch (e) {
+    setMsg(`Error: ${escapeHtml(e.message)}`, "danger");
+  }
+}
 
-    function clearRubros() {
-      document.getElementById("txtPegadoRubro").value = "";
-      renderRubrosTable([]);
-      setMsg("Tabla limpiada.", "muted");
-    }
+function clearRubros() {
+  document.getElementById("txtPegadoRubro").value = "";
+  renderRubrosTable([]);
+  setMsg("Tabla limpiada.", "muted");
+}
 
-    function exportRubrosJSON() {
-      const json = collectRubrosFromTable();
-      console.log("RUBROS JSON:", json);
-      setMsg("Exportado a consola (F12 → Console).", "success");
-    }
+function exportRubrosJSON() {
+  const json = collectRubrosFromTable();
+  pastePresupuestoItem(json[0])
 
-    /* =========================
-       INIT (Bootstrap + listeners)
-       ========================= */
-    document.addEventListener("DOMContentLoaded", () => {
-      const modalEl = document.getElementById("modalImportRubro");
-      const modal = new bootstrap.Modal(modalEl);
+  for (i in json) {
+    pastePresupuestoItem(json[i])
+  }
+  setMsg("Exportado a consola (F12 → Console).", "success");
+}
 
-      document.getElementById("btnAbrirImportRubro").addEventListener("click", () => {
-        modal.show();
-        setMsg("");
-      });
+/* =========================
+   INIT (Bootstrap + listeners)
+   ========================= */
+document.addEventListener("DOMContentLoaded", () => {
+  const modalEl = document.getElementById("modalImportRubro");
+  const modal = new bootstrap.Modal(modalEl);
 
-      document.getElementById("btnLeerClipboardRubro").addEventListener("click", buildFromClipboardRubros);
-      document.getElementById("btnConstruirDesdePegadoRubro").addEventListener("click", buildFromTextareaRubros);
-      document.getElementById("btnLimpiarTablaRubro").addEventListener("click", clearRubros);
-      document.getElementById("btnExportarRubrosJSON").addEventListener("click", exportRubrosJSON);
-      document.getElementById("btnAgregarFilaRubro").addEventListener("click", addEmptyRow);
+  document.getElementById("btnAbrirImportRubro").addEventListener("click", () => {
+    modal.show();
+    setMsg("");
+  });
 
-      // Delegación para eliminar fila
-      document.getElementById("tblRubrosPreview").addEventListener("click", (ev) => {
-        const btn = ev.target.closest("button[data-action='del']");
-        if (!btn) return;
+  document.getElementById("btnLeerClipboardRubro").addEventListener("click", buildFromClipboardRubros);
+  document.getElementById("btnConstruirDesdePegadoRubro").addEventListener("click", buildFromTextareaRubros);
+  document.getElementById("btnLimpiarTablaRubro").addEventListener("click", clearRubros);
+  document.getElementById("btnExportarRubrosJSON").addEventListener("click", exportRubrosJSON);
+  document.getElementById("btnAgregarFilaRubro").addEventListener("click", addEmptyRow);
 
-        const rowIndex = Number(btn.dataset.row);
-        const rows = collectRubrosAsRows();
-        rows.splice(rowIndex, 1);
-        renderRubrosTable(rows);
-        setMsg("Fila eliminada.", "muted");
-      });
+  // Delegación para eliminar fila
+  document.getElementById("tblRubrosPreview").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-action='del']");
+    if (!btn) return;
 
-      // Render inicial con header fijo (sin filas)
-      renderRubrosTable([]);
-    });
+    const rowIndex = Number(btn.dataset.row);
+    const rows = collectRubrosAsRows();
+    rows.splice(rowIndex, 1);
+    renderRubrosTable(rows);
+    setMsg("Fila eliminada.", "muted");
+  });
+
+  // Render inicial con header fijo (sin filas)
+  renderRubrosTable([]);
+});
 
 
 init();
