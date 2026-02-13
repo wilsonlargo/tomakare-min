@@ -254,7 +254,7 @@ async function loadProyecto() {
   await loadDepartamentos();
   document.getElementById("inpDepartamento").value = data.departamento ?? "";
   await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
-  pintarTotalesObjetivos(data.id) 
+  pintarTotalesObjetivos(data.id)
 }
 
 async function guardarCambios() {
@@ -329,6 +329,9 @@ async function loadObjetivos() {
   renderObjetivosList();
   await pintarTotalesObjetivos(proyectoId);
   await pintarTotalProyecto(proyectoId);
+  await pintarAvanceObjetivos(proyectoId);
+  await pintarAvanceProyecto(proyectoId);
+
 }
 
 function openModalObjetivoNew() {
@@ -426,6 +429,7 @@ function renderObjetivosList() {
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Orden: ${o.orden ?? ""}</div>
           <span class="badge bg-light text-dark border mt-1 fs-6" id="badgeObj${o.id}">$0</span>
+          <span class="badge bg-primary text-white border mt-1 fs-6" id="badgeObjAv${o.id}">%0</span>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" data-obj-edit="${o.id}" type="button" title="Editar">
@@ -509,9 +513,12 @@ async function loadActividades(objetivoId) {
     cacheProductos = [];
     renderProductosList();
   }
-
   renderActividadesList();
   await pintarTotalesActividades(objetivoId);
+  await pintarAvanceActividades(objetivoId);
+
+
+
 }
 
 function openModalActividadNew() {
@@ -618,6 +625,7 @@ function renderActividadesList() {
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Estado: ${escapeHtml(a.estado ?? "Pendiente")} · Orden: ${a.orden ?? ""}</div>
           <span class="badge bg-light text-dark border mt-1" id="badgeAct${a.id}">$0</span>
+          <span class="badge bg-light text-dark border mt-1" id="badgeActAv${a.id}">%0</span>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" data-act-edit="${a.id}" type="button" title="Editar">
@@ -685,6 +693,8 @@ async function loadProductos(actividadId) {
     setMsgOAP("❌ " + error.message, "danger");
     cacheProductos = [];
     renderProductosList();
+    await pintarAvanceActividades(objetivoActivoId);
+
     return;
   }
 
@@ -784,6 +794,11 @@ async function saveProducto() {
 
     bootstrap.Modal.getInstance(document.getElementById("modalProducto")).hide();
     await loadProductos(actividadActivaId);
+
+    await pintarAvanceActividades(objetivoActivoId);
+    await pintarAvanceObjetivos(proyectoId);
+    await pintarAvanceProyecto(proyectoId);
+
   } catch (e) {
     console.error("PROD SAVE ERROR:", e);
     setMsgModal("msgProdModal", "❌ " + (e.message || e), "danger");
@@ -798,6 +813,10 @@ async function deleteProducto(id) {
     const { error } = await supabaseClient.from("producto").delete().eq("id", id);
     if (error) throw error;
     await loadProductos(actividadActivaId);
+    await pintarAvanceActividades(objetivoActivoId);
+    await pintarAvanceObjetivos(proyectoId);
+    await pintarAvanceProyecto(proyectoId);
+
   } catch (e) {
     console.error("PROD DEL ERROR:", e);
     setMsgOAP("❌ " + (e.message || e), "danger");
@@ -1432,15 +1451,28 @@ function clearRubros() {
   setMsg("Tabla limpiada.", "muted");
 }
 
-function exportRubrosJSON() {
-  const json = collectRubrosFromTable();
-  pastePresupuestoItem(json[0])
+async function exportRubrosJSON() {
+  try {
+    const text = await navigator.clipboard.readText();
+    const json = JSON.parse(text);
 
-  for (i in json) {
-    pastePresupuestoItem(json[i])
+    if (!Array.isArray(json) || json.length === 0) {
+      return setMsg("importRubroMsg", "❌ El portapapeles no contiene un array JSON válido.", "danger");
+    }
+
+    // 👇 IMPORTANTE: eliminar inserción duplicada
+    for (const item of json) {
+      await pastePresupuestoItem(item);
+    }
+
+    setMsg("importRubroMsg", `✅ Importados ${json.length} rubros.`, "success");
+
+  } catch (e) {
+    console.error(e);
+    setMsg("importRubroMsg", "❌ " + (e.message || e), "danger");
   }
-  setMsg("Exportado a consola (F12 → Console).", "success");
 }
+
 
 /* =========================
    INIT (Bootstrap + listeners)
@@ -1517,8 +1549,36 @@ async function pintarTotalProyecto(proyectoId) {
   if (error) return console.error(error);
 
   const el = document.getElementById("badgeTotalProyecto");
-  if (el) el.textContent ="VALOR TOTAL PROYECTO -  " + money(data);
+  if (el) el.textContent = "VALOR TOTAL PROYECTO -  " + money(data);
 }
+
+function pct(n) { return `${Number(n || 0).toFixed(2)}%`; }
+
+async function pintarAvanceActividades(objetivoId) {
+  const { data, error } = await supabaseClient.rpc("get_avance_actividades_por_objetivo", { p_objetivo_id: objetivoId });
+  if (error) return console.error(error);
+  (data || []).forEach(r => {
+    const el = document.getElementById(`badgeActAv${r.actividad_id}`);
+    if (el) el.textContent = pct(r.avance);
+  });
+}
+
+async function pintarAvanceObjetivos(proyectoId) {
+  const { data, error } = await supabaseClient.rpc("get_avance_objetivos_por_proyecto", { p_proyecto_id: proyectoId });
+  if (error) return console.error(error);
+  (data || []).forEach(r => {
+    const el = document.getElementById(`badgeObjAv${r.objetivo_id}`);
+    if (el) el.textContent ="Avance objetivo:  " + pct(r.avance);
+  });
+}
+
+async function pintarAvanceProyecto(proyectoId) {
+  const { data, error } = await supabaseClient.rpc("get_avance_proyecto", { p_proyecto_id: proyectoId });
+  if (error) return console.error(error);
+  const el = document.getElementById("lblAvanceProyecto");
+  if (el) el.textContent = pct(data);
+}
+
 
 
 init();
