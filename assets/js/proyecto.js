@@ -254,6 +254,7 @@ async function loadProyecto() {
   await loadDepartamentos();
   document.getElementById("inpDepartamento").value = data.departamento ?? "";
   await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
+  pintarTotalesObjetivos(data.id) 
 }
 
 async function guardarCambios() {
@@ -326,6 +327,8 @@ async function loadObjetivos() {
   }
 
   renderObjetivosList();
+  await pintarTotalesObjetivos(proyectoId);
+  await pintarTotalProyecto(proyectoId);
 }
 
 function openModalObjetivoNew() {
@@ -422,6 +425,7 @@ function renderObjetivosList() {
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Orden: ${o.orden ?? ""}</div>
+          <span class="badge bg-light text-dark border mt-1 fs-6" id="badgeObj${o.id}">$0</span>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" data-obj-edit="${o.id}" type="button" title="Editar">
@@ -451,7 +455,7 @@ function renderObjetivosList() {
       await loadPresupuestoActividad(null);
 
       await loadActividades(objetivoActivoId);
-      renderActividadesList();
+
     });
   });
 
@@ -507,6 +511,7 @@ async function loadActividades(objetivoId) {
   }
 
   renderActividadesList();
+  await pintarTotalesActividades(objetivoId);
 }
 
 function openModalActividadNew() {
@@ -612,6 +617,7 @@ function renderActividadesList() {
         <div class="me-2">
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Estado: ${escapeHtml(a.estado ?? "Pendiente")} · Orden: ${a.orden ?? ""}</div>
+          <span class="badge bg-light text-dark border mt-1" id="badgeAct${a.id}">$0</span>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" data-act-edit="${a.id}" type="button" title="Editar">
@@ -956,6 +962,7 @@ async function init() {
 
 
 }
+//Carga solo la lista de los rubros
 async function loadRubrosCatalogo() {
   const { data, error } = await supabaseClient
     .from("rubro")
@@ -1140,7 +1147,7 @@ async function addPresupuestoItem() {
     alert("Error agregando fila: " + (e.message || e));
   }
 }
-
+//Esta función pega y configura si saco datos de una talba externa
 async function pastePresupuestoItem(db) {
   try {
     if (!actividadActivaId) {
@@ -1468,6 +1475,50 @@ document.addEventListener("DOMContentLoaded", () => {
   // Render inicial con header fijo (sin filas)
   renderRubrosTable([]);
 });
+
+
+async function pintarTotalesActividades(objetivoId) {
+  const { data, error } = await supabaseClient.rpc(
+    "get_totales_actividades_por_objetivo",
+    { p_objetivo_id: objetivoId }
+  );
+
+  if (error) return console.error(error);
+
+  data.forEach(r => {
+
+    const el = document.getElementById(`badgeAct${r.actividad_id}`);
+    if (el) el.textContent = "Valor actividad:  " + money(r.total);
+
+
+
+  });
+}
+
+async function pintarTotalesObjetivos(proyectoId) {
+  const { data, error } = await supabaseClient.rpc(
+    "get_totales_objetivos_por_proyecto",
+    { p_proyecto_id: proyectoId }
+  );
+
+  if (error) return console.error(error);
+
+  data.forEach(r => {
+    const el = document.getElementById(`badgeObj${r.objetivo_id}`);
+    if (el) el.textContent = "Valor objetivo:  " + money(r.total);
+  });
+}
+async function pintarTotalProyecto(proyectoId) {
+  const { data, error } = await supabaseClient.rpc(
+    "get_total_proyecto",
+    { p_proyecto_id: proyectoId }
+  );
+
+  if (error) return console.error(error);
+
+  const el = document.getElementById("badgeTotalProyecto");
+  if (el) el.textContent ="VALOR TOTAL PROYECTO -  " + money(data);
+}
 
 
 init();

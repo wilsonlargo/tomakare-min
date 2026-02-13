@@ -30,6 +30,7 @@
         <div>
           <div class="text-muted small">Proyecto</div>
           <div class="h5 mb-0" id="lblProyecto">—</div>
+          <div class="h6 mb-0 text-secondary" id="badgeTotalProyecto">—</div>
         </div>
         <div class="text-muted small" id="lblProyectoId"></div>
       </div>
@@ -51,47 +52,54 @@
             <input id="inpManager" type="text" class="form-control" placeholder="Responsable" />
           </div>
 
-          <div class="col-md-6">
-            <label class="form-label">Estrategia</label>
-            <input id="inpEstrategia" type="text" class="form-control" placeholder="Estrategia" />
-          </div>
 
+        </div>
+        <div class="row g-3">
+          <div class="col">
+            <label class="form-label">Estrategia</label>
+            <textarea id="inpEstrategia" type="text" class="form-control bg-body-secondary mb-2" placeholder="Estrategia"></textarea>
+          </div>
+        </div>
+        <div class="row g-3">
           <div class="col-12">
             <label class="form-label">Objetivo (síntesis)</label>
             <textarea id="inpObjetivo" class="form-control" rows="3"
               placeholder="Describe el objetivo general..."></textarea>
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Nodo</label>
             <input id="inpNodo" type="text" class="form-control" placeholder="Nodo" />
           </div>
+        </div>
+        <div class="row g-3">
 
-          <div class="col-md-4">
+          <div class="col">
             <label class="form-label">Línea</label>
-            <input id="inpLinea" type="text" class="form-control" placeholder="Línea" />
+            <textarea id="inpLinea" class="form-control bg-body-secondary mb-2" rows="4" placeholder="Línea..."></textarea>
           </div>
-
+        </div>
+        <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label">Lugar (opcional)</label>
             <input id="inpLugar" type="text" class="form-control" placeholder="Resguardo / sede / vereda / barrio" />
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Departamento</label>
             <select id="inpDepartamento" class="form-select">
               <option value="">Seleccione…</option>
             </select>
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Municipio</label>
             <select id="inpMunicipio" class="form-select" disabled>
               <option value="">Seleccione…</option>
             </select>
           </div>
-
-          <div class="col-md-6">
+        </div>
+        <!--***************************-->
+        <hr>
+        <div class="row g-3">
+          <div class="col-md-4">
             <label class="form-label">Tipo de población</label>
             <select id="inpTipoPoblacion" class="form-select">
               <option value="">Seleccione…</option>
@@ -103,11 +111,12 @@
             </select>
           </div>
 
-          <div class="col-md-6">
+          <div class="col-md-4">
             <label class="form-label">Nombre población / pueblo</label>
             <input id="inpNombrePoblacion" type="text" class="form-control" placeholder="Ej: Awá, Pastos, Embera..." />
           </div>
         </div>
+
       </div>
     </div>
 
@@ -160,9 +169,10 @@
             <strong>Presupuesto / Rubros</strong>
 
             <div class="btn-group" role="group" aria-label="Basic example">
-              <button id="btnAbrirImportRubro" type="button" class="btn btn-primary">Pegar tabla</button>
+              <button id="btnAbrirImportRubro" type="button" class="btn btn-warning"
+                title="Pegar contenido de otra tabla"><i class="bi bi-clipboard-minus"></i></button>
               <button id="btnNuevoRubroItem" type="button" class="btn btn-sm btn-primary">
-                + Fila
+                + Nuevo rubro
               </button>
             </div>
           </div>
@@ -445,20 +455,20 @@
               <input type="number" class="form-control" id="inputOperativos">
             </div>
           </div>
- 
 
-        <div id="importRubroMsg" class="small mt-2"></div>
+
+          <div id="importRubroMsg" class="small mt-2"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" id="btnExportarRubrosJSON" class="btn btn-success">
+            Importar rubros
+          </button>
+        </div>
+
       </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-        <button type="button" id="btnExportarRubrosJSON" class="btn btn-success">
-          Importar rubros
-        </button>
-      </div>
-
     </div>
-  </div>
   </div>
 
 
