@@ -625,7 +625,7 @@ function renderActividadesList() {
           <div class="fw-semibold">${escapeHtml(label)}</div>
           <div class="text-muted small">Estado: ${escapeHtml(a.estado ?? "Pendiente")} · Orden: ${a.orden ?? ""}</div>
           <span class="badge bg-light text-dark border mt-1" id="badgeAct${a.id}">$0</span>
-          <span class="badge bg-light text-dark border mt-1" id="badgeActAv${a.id}">%0</span>
+          <span class="badge bg-primary text-white border mt-1" id="badgeActAv${a.id}">%0</span>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" data-act-edit="${a.id}" type="button" title="Editar">
@@ -1559,7 +1559,7 @@ async function pintarAvanceActividades(objetivoId) {
   if (error) return console.error(error);
   (data || []).forEach(r => {
     const el = document.getElementById(`badgeActAv${r.actividad_id}`);
-    if (el) el.textContent = pct(r.avance);
+    if (el) el.textContent = "Avance actividad:  " + pct(r.avance);
   });
 }
 
@@ -1576,9 +1576,8 @@ async function pintarAvanceProyecto(proyectoId) {
   const { data, error } = await supabaseClient.rpc("get_avance_proyecto", { p_proyecto_id: proyectoId });
   if (error) return console.error(error);
   const el = document.getElementById("lblAvanceProyecto");
-  if (el) el.textContent = pct(data);
+  if (el) el.textContent = "AVANCE DEL PROYECTO  - " +  pct(data);
 }
-
 
 
 init();

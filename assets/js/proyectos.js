@@ -33,14 +33,16 @@ function moneyCOP(n) {
 function semaforoBadge(semaforo) {
     const s = (semaforo || "").toLowerCase();
     const map = {
-        gris: "secondary",
-        negro: "dark",
-        rojo_oscuro: "danger",
-        rojo: "danger",
-        naranja: "warning",
-        amarillo: "warning",
-        verde_claro: "success",
         verde: "success",
+        lima: "success-subtle",
+        amarillo: "warning-subtle",
+        naranja: "warning",
+        rojo: "danger",
+        gris: "secondary",
+
+
+
+
     };
     const cls = map[s] || "secondary";
     return `<span class="badge bg-${cls} badge-semaforo">${s || "—"}</span>`;
@@ -187,8 +189,8 @@ async function loadAreasGrupos() {
 
     document.getElementById("navAreasDesktop").innerHTML = acc;
     document.getElementById("navAreasMobile").innerHTML = acc;
-    document.getElementById("itemMapas").onclick=()=>{
-         window.location.href = "./GIS/mapas.html";
+    document.getElementById("itemMapas").onclick = () => {
+        window.location.href = "./GIS/mapas.html";
     }
 
     document.querySelectorAll("[data-grupo-id]").forEach((el) => {
@@ -213,7 +215,7 @@ async function loadAreasGrupos() {
 async function loadProyectosByGrupo(grupo_id) {
     hideMsg("msg");
     const tbody = document.getElementById("tblProyectos");
-    tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">Cargando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-muted p-3">Cargando...</td></tr>`;
 
     const { data, error } = await supabaseClient
         .from("v_proyecto_avance_costo")
@@ -224,33 +226,61 @@ async function loadProyectosByGrupo(grupo_id) {
     if (error) {
         console.error("LIST ERROR:", error);
         setMsg("msg", `❌ ${error.message}`, "danger");
-        tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">Error cargando proyectos.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-muted p-3">Error cargando proyectos.</td></tr>`;
         return;
     }
 
     document.getElementById("lblConteo").textContent = `${data.length}`;
 
     if (!data.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">No hay proyectos en este grupo.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-muted p-3">No hay proyectos en este grupo.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = data
         .map(
             (p) => `
-    <tr style="cursor:pointer" data-id="${p.proyecto_id}">
-      <td>${escapeHtml(p.nombre ?? "—")}</td>
-      <td class="text-end">${Number(p.porcentaje || 0).toFixed(2)}%</td>
-      <td>${semaforoBadge(p.semaforo)}</td>
-      <td class="text-end">${moneyCOP(p.costo_total)}</td>
-    </tr>
-  `
+<tr style="cursor:pointer" data-id="${p.proyecto_id}">
+  <td>${escapeHtml(p.nombre ?? "—")}</td>
+  <td class="text-end">${Number(p.porcentaje || 0).toFixed(2)}%</td>
+  <td>${semaforoBadge(p.semaforo)}</td>
+  <td class="text-end">${moneyCOP(p.costo_total)}</td>
+  <td class="text-center">
+    <div class="btn-group btn-group-sm" role="group">
+      <button class="btn btn-outline-primary btn-open" data-id="${p.proyecto_id}" title="Abrir">
+        <i class="bi bi-box-arrow-up-right"></i>
+      </button>
+      <button class="btn btn-outline-secondary btn-print" data-id="${p.proyecto_id}" title="Informe / Imprimir">
+        <i class="bi bi-printer"></i>
+      </button>
+    </div>
+  </td>
+</tr>
+`
         )
         .join("");
+
 
     tbody.querySelectorAll("tr[data-id]").forEach((tr) => {
         tr.addEventListener("click", () => {
             window.location.href = `proyecto.html?id=${tr.dataset.id}`;
+        });
+    });
+    // botones: evitar que dispare el click de la fila
+    tbody.querySelectorAll(".btn-open").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            window.location.href = `proyecto.html?id=${btn.dataset.id}`;
+        });
+    });
+
+    tbody.querySelectorAll(".btn-print").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            // Página nueva de informe imprimible (la creamos después)
+            window.location.href = `proyecto_print.html?id=${btn.dataset.id}`;
+            // Alternativa rápida si prefieres imprimir la misma vista:
+            // window.open(`proyecto.html?id=${btn.dataset.id}&print=1`, "_blank");
         });
     });
 }
