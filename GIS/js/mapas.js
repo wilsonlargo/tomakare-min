@@ -33,12 +33,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 function initMap() {
   map = L.map("map", {
     center: [4.6, -74.1],
-    zoom: 6,
+    zoom: 8,
     zoomSnap: 0.1,
     zoomDelta: 0.1,
-    wheelPxPerZoomLevel: 200,
+    wheelPxPerZoomLevel: 100,
     zoomControl: false // (si quieres, luego ponemos botones propios fuera del mapa)
   });
+
+  map = L.map('map').setView([4.6, -74.1], 13);
 
   createPane("base", 200);
   createPane("pane1", 300);
@@ -46,12 +48,6 @@ function initMap() {
   createPane("pane3", 500);
   createPane("pane4", 600);
 
-  // Base OSM (puedes cambiar a tu tileset)
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap",
-    pane: "base"
-  }).addTo(map);
 }
 
 function createPane(name, zIndex) {
@@ -74,12 +70,13 @@ async function cargarTableroGeoJSON() {
     if (layerTablero) map.removeLayer(layerTablero);
 
     layerTablero = L.geoJSON(geojson, {
-      pane: "pane2",
+      pane: "base",
       style: () => ({
-        weight: 2,
+        weight: 0,
         opacity: 1,
         fillOpacity: 1,
-        fillColor: "white"
+        fillColor: "white",
+        pane: "base"
       })
     });
 
@@ -111,12 +108,13 @@ async function cargarMapabaseGeoJSON() {
     if (layerMapabase) map.removeLayer(layerMapabase);
 
     layerMapabase = L.geoJSON(geojson, {
-      pane: "pane1",
+      pane: "pane2",
       style: () => ({
         weight: 0,
         opacity: 1,
         fillOpacity: 1,
-        fillColor: "#E7E5E4"
+        fillColor: "#c8c4c1",
+        pane:"pane2"
       })
     });
 
@@ -178,13 +176,14 @@ async function cargarFamiliasLinguisticas() {
       const fc = { type: "FeatureCollection", features: grupos[fam] };
 
       familiasLayers[fam] = L.geoJSON(fc, {
-        pane: paneFamilias,
+        pane: "pane3",
         style: () => ({
           color: familiasColors[fam],
           weight: 2,
           opacity: 0.95,
           fillColor: familiasColors[fam],
-          fillOpacity: 0.20
+          fillOpacity: 0.20,
+          pane:"pane3"
         }),
         onEachFeature: (feature, layer) => {
           const f = normalizarFamilia(feature?.properties?.Familia);
