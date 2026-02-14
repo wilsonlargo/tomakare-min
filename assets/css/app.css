@@ -52,12 +52,11 @@
 }
 .map-canvas{
   height: calc(100vh - 120px);
+  min-height: 420px;
 }
-
-/* Móvil: el mapa no necesita “100vh” porque abajo aparece el panel */
 @media (max-width: 768px){
   .map-canvas{
-    height: 58vh;          /* ajusta 50–65vh a gusto */
+    height: 60vh;
     min-height: 360px;
   }
 }
