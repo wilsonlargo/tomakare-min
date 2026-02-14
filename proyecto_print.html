@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Informe de Proyecto</title>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+
+    <!-- Tu CSS general (si tienes) -->
+    <!-- <link rel="stylesheet" href="assets/css/app.css"> -->
+
+    <!-- CSS de impresión -->
+    <link rel="stylesheet" href="./assets/css/print.css">
+</head>
+
+<body class="bg-light">
+
+    <div class="container my-3">
+
+        <!-- Barra superior (no imprime) -->
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between no-print mb-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="chkPresupuesto">
+                    <label class="form-check-label" for="chkPresupuesto">Incluir presupuesto</label>
+                </div>
+                <span class="text-muted small" id="lblEstado">Listo.</span>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm" id="btnCerrar">Cerrar</button>
+                <button class="btn btn-primary btn-sm" id="btnImprimir">Imprimir</button>
+            </div>
+        </div>
+
+        <!-- Documento -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+
+                <!-- Encabezado -->
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <h4 class="mb-1" id="txtTitulo">Informe técnico del proyecto</h4>
+                        <div class="text-muted small" id="txtSubtitulo">—</div>
+                    </div>
+
+                    <div class="text-end">
+                        <div class="text-muted small">Fecha</div>
+                        <div class="fw-semibold" id="txtFecha">—</div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Resumen ejecutivo -->
+                <div class="row g-3">
+                    <div class="col-12 col-lg-8">
+                        <div class="mb-2 text-muted small">Resumen ejecutivo</div>
+
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6">
+                                <div class="text-muted small">Proyecto</div>
+                                <div class="fw-semibold" id="txtProyecto">—</div>
+                            </div>
+
+                            <div class="col-6 col-md-3">
+                                <div class="text-muted small">Avance</div>
+                                <div class="fw-semibold" id="txtAvanceProyecto">—</div>
+                            </div>
+
+                            <div class="col-6 col-md-3">
+                                <div class="text-muted small">Total</div>
+                                <div class="fw-semibold" id="txtTotalProyecto">—</div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="text-muted small">Semáforo</div>
+                                <div id="txtSemaforo">—</div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="text-muted small">Conteos</div>
+                                <div class="fw-semibold" id="txtConteos">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-4">
+                        <div class="mb-2 text-muted small">Objetivos (resumen)</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Objetivo</th>
+                                        <th class="text-end">% Av.</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblResumenObjetivos">
+                                    <tr>
+                                        <td colspan="3" class="text-muted small">Cargando…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Detalle técnico -->
+                <div class="mb-2 text-muted small">Detalle técnico</div>
+                <div id="contenedorDetalle">
+                    <div class="text-muted small">Cargando…</div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./assets/js/supabaseClient.js"></script>
+<script src="./assets/js/proyecto_print.js"></script>
+
+
+</body>
+
+</html>

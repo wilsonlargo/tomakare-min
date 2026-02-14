@@ -1,5 +1,13 @@
 // assets/js/proyectos.js
 
+const { data: { session } } = await supabaseClient.auth.getSession();
+
+if (!session) {
+  window.location.href = "index.html";
+  return;
+}
+
+
 let current = {
     area_id: null,
     area: null,
@@ -250,7 +258,7 @@ async function loadProyectosByGrupo(grupo_id) {
       <button class="btn btn-outline-primary btn-open" data-id="${p.proyecto_id}" title="Abrir">
         <i class="bi bi-box-arrow-up-right"></i>
       </button>
-      <button class="btn btn-outline-secondary btn-print" data-id="${p.proyecto_id}" title="Informe / Imprimir">
+      <button class="btn btn-outline-secondary btn-print" data-id="${p.proyecto_id}" title="Informe / Imprimir" onclick="proyecto_print.html?id=${p.proyecto_id}">
         <i class="bi bi-printer"></i>
       </button>
     </div>

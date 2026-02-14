@@ -1,0 +1,18 @@
+/* Ocultar elementos que no deben imprimirse */
+.no-print { display: block; }
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .card { border: none !important; box-shadow: none !important; }
+}
+
+/* Presupuesto opcional: por defecto oculto si body no tiene clase */
+.only-presupuesto { display: none; }
+body.show-presupuesto .only-presupuesto { display: block; }
+
+/* Mejoras de impresión */
+@media print {
+  @page { size: letter; margin: 10mm; }
+  h4 { margin-top: 10mm; }
+  .page-break { break-before: page; }
+}
