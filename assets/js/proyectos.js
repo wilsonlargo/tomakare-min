@@ -191,6 +191,16 @@ async function loadAreasGrupos() {
             </li>
           </div>
         </div>
+        <div id="colapseApp" class="accordion-collapse "show" : ""}">
+          <div class="list-group list-group-flush">
+            <li class="list-group-item cursor-app" href="gestion-dashboard.html">
+                
+                <a class="nav-link" href="./gestion-dashboard.html">
+                                    <i class="bi bi-globe-americas me-4"></i>Gestión
+                </a>
+            </li>
+          </div>
+        </div>
       </div>
     `;
         })

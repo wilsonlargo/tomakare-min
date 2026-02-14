@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gestión | Dashboard</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        /* Evita que Bootstrap escale los tiles */
+        .leaflet-container img,
+        img.leaflet-tile,
+        .leaflet-tile {
+            max-width: none !important;
+            max-height: none !important;
+        }
+
+        /* Asegura que el mapa quede encerrado */
+        #mapAcciones {
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+
+
+</head>
+
+
+<body class="bg-light">
+    <!-- Top bar (si ya tienes navbar global, puedes reemplazar esto) -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand">Gestión · Dashboard</span>
+            <div class="ms-auto d-flex gap-2">
+                <a class="btn btn-outline-light btn-sm" href="./proyectos.html">Proyectos</a>
+                <a class="btn btn-outline-light btn-sm" href="./mapa-lenguas.html">Mapa lenguas</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid py-3">
+        <!-- Alert si no hay supabaseClient -->
+        <div id="supabaseMissing" class="alert alert-warning d-none">
+            No se encontró <code>window.supabaseClient</code>. Incluye tu script común de inicialización (donde ya creas
+            el cliente con la sesión).
+        </div>
+
+        <!-- Filtros -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Grupo Interno de Trabajo</label>
+                        <select id="fGrupo" class="form-select form-select-sm">
+                            <option value="">(Todos)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Programa</label>
+                        <select id="fPrograma" class="form-select form-select-sm" disabled>
+                            <option value="">(Todos)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Sub programa</label>
+                        <select id="fSubprograma" class="form-select form-select-sm" disabled>
+                            <option value="">(Todos)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Objetivo del programa</label>
+                        <select id="fObjetivo" class="form-select form-select-sm" disabled>
+                            <option value="">(Todos)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2 mt-2">
+                        <button id="btnReset" class="btn btn-sm btn-outline-secondary">Limpiar filtros</button>
+                        <div class="ms-auto small text-muted" id="lblScope">Cargando…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Actividades</div>
+                        <div class="fs-3 fw-semibold" id="kpiActividades">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Presupuesto (suma)</div>
+                        <div class="fs-3 fw-semibold" id="kpiPresupuesto">—</div>
+                        <div class="small text-muted" id="kpiPresupuestoNota"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Personas a impactar (suma)</div>
+                        <div class="fs-3 fw-semibold" id="kpiPersonas">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Avance (promedio)</div>
+                        <div class="fs-3 fw-semibold" id="kpiAvance">—</div>
+                        <div class="small text-muted">Basado en “AVANCE CORTE JULIO - DICIEMBRE”</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estado + Ranking -->
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="fw-semibold">Distribución por ESTADO</div>
+                            <span class="badge text-bg-secondary" id="badgeEstados">—</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Estado</th>
+                                        <th class="text-end">Actividades</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblEstados">
+                                    <tr>
+                                        <td colspan="2" class="text-muted">Cargando…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="fw-semibold mb-2" id="ttlAgrupado">Resumen por Grupo</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th id="colAgrupa">Grupo Interno de Trabajo</th>
+                                        <th class="text-end">Actividades</th>
+                                        <th class="text-end">Presupuesto</th>
+                                        <th class="text-end">Personas</th>
+                                        <th class="text-end">Avance</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tblAgrupado">
+                                    <tr>
+                                        <td colspan="5" class="text-muted">Cargando…</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            Tip: este resumen cambia de nivel según el filtro (Grupo → Programa → Subprograma →
+                            Objetivo).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 align-items-end mb-2">
+                    <div>
+                        <label class="form-label small mb-1">Colorear por</label>
+                        <select id="selMetric" class="form-select form-select-sm">
+                            <option value="presupuesto">Inversión (Presupuesto)</option>
+                            <option value="beneficiarios">Beneficiarios (Personas a impactar)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label small mb-1">Nivel</label>
+                        <select id="selNivel" class="form-select form-select-sm">
+                            <option value="departamentos">Departamentos</option>
+                            <option value="municipios">Municipios</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label small mb-1">Puntos</label>
+                        <select id="selPuntos" class="form-select form-select-sm">
+                            <option value="git">Color por G.I.T.</option>
+                            <option value="poblacion">Color por población</option>
+                        </select>
+                    </div>
+
+                    <div class="ms-auto small text-muted" id="lblMapaInfo">Mapa listo</div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-12 col-lg-9">
+                        <div id="mapAcciones" class="border rounded" style="height: 520px; background:#fff;"></div>
+                    </div>
+                    <div class="col-12 col-lg-3">
+                        <div class="border rounded p-2 bg-white">
+                            <div class="fw-semibold mb-1">Convenciones</div>
+                            <div id="mapLegend" class="small text-muted">Cargando…</div>
+                            <hr class="my-2">
+                            <div class="fw-semibold mb-1">Categorías puntos</div>
+                            <div id="pointsLegend" class="small text-muted">Cargando…</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Offcanvas para ficha -->
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasFicha">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title">Ficha</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+            </div>
+            <div class="offcanvas-body" id="fichaBody"></div>
+        </div>
+
+
+        <!-- Debug -->
+        <div class="mt-3 small text-muted" id="dbg"></div>
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Supabase JS + cliente (ANTES del dashboard) -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="assets/js/supabaseClient.js"></script>
+
+    <!-- (Opcional) si luego quieres botón salir / helpers -->
+    <script src="assets/js/auth.js"></script>
+
+    <!-- Dashboard -->
+    <script src="assets/js/gestion-dashboard.js"></script>
+
+
+</body>
+
+</html>
