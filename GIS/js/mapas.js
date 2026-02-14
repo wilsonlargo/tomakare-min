@@ -49,8 +49,8 @@ function initMap() {
 
     // ✅ Tiles OSM (si quieres otro, lo cambiamos)
     //L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      //  maxZoom: 19,
-        //pane: "base"
+    //  maxZoom: 19,
+    //pane: "base"
     //}).addTo(map);
 }
 
@@ -80,7 +80,7 @@ async function cargarTableroGeoJSON() {
                 weight: 0,
                 opacity: 1,
                 fillOpacity: 1,
-                fillColor: "white",
+                fillColor: "lightgray",
                 pane: "base"
             })
         });
@@ -118,10 +118,11 @@ async function cargarMapabaseGeoJSON() {
         layerMapabase = L.geoJSON(geojson, {
             pane: "pane2",
             style: () => ({
-                weight: 0,
+                weight: 1,
+                color:"gray",
                 opacity: 1,
                 fillOpacity: 1,
-                fillColor: "#c8c4c1",
+                fillColor: "white",
                 pane: "pane2"
             })
         });
@@ -163,9 +164,11 @@ async function cargarFamiliasLinguisticas() {
 
         // Paleta (reutilizamos en puntos)
         const palette = [
-            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-            "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
-            "#bcbd22", "#17becf"
+            "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
+            "#2ca02c", "#98df8a", "#d62728", "#ff9896",
+            "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
+            "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
+            "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"
         ];
 
         const familias = Object.keys(grupos).sort((a, b) => a.localeCompare(b));
@@ -187,10 +190,10 @@ async function cargarFamiliasLinguisticas() {
                 pane: "pane3",
                 style: () => ({
                     color: familiasColors[fam],
-                    weight: 2,
+                    weight: 0,
                     opacity: 0.95,
                     fillColor: familiasColors[fam],
-                    fillOpacity: 0.20,
+                    fillOpacity: 0.50,
                     pane: "pane3"
                 }),
                 onEachFeature: (feature, layer) => {
@@ -232,10 +235,12 @@ async function cargarLenguasComoCapas() {
             .sort((a, b) => a.localeCompare(b));
 
         // Paleta
-        const palette = [
-            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-            "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
-            "#bcbd22", "#17becf"
+      const palette = [
+            "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
+            "#2ca02c", "#98df8a", "#d62728", "#ff9896",
+            "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
+            "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
+            "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"
         ];
         coloresFamiliaLenguas = {};
         familias.forEach((f, i) => coloresFamiliaLenguas[f] = palette[i % palette.length]);
