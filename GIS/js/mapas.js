@@ -1,3 +1,19 @@
+function isMobileUI() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function hideLeafletControlsOnMobile() {
+  if (!isMobileUI()) return;
+
+  // Oculta TODOS los controles Leaflet en móvil
+  // (si quieres dejar alguno, me dices y lo ajustamos)
+  const container = map.getContainer();
+  container.querySelectorAll(".leaflet-control").forEach(el => {
+    el.style.display = "none";
+  });
+}
+
+
 // js/mapas.js
 let map;
 let layerTablero = null;
@@ -45,6 +61,8 @@ function initMap() {
         {},  // overlays
         { collapsed: false }
     ).addTo(map);
+    hideLeafletControlsOnMobile();
+
 }
 
 function createPane(name, zIndex) {
@@ -100,6 +118,8 @@ async function cargarTableroGeoJSON() {
         console.error("Error cargando tablero:", e);
         // Si tienes un label de estado, aquí lo puedes actualizar
     }
+    renderMobilePanel();
+
 }
 async function cargarMapabaseGeoJSON() {
     const url = "../GIS/Layers/002basemap.geojson"; // ruta relativa
@@ -146,6 +166,8 @@ async function cargarMapabaseGeoJSON() {
         console.error("Error cargando tablero:", e);
         // Si tienes un label de estado, aquí lo puedes actualizar
     }
+    renderMobilePanel();
+
 }
 let familiasLayers = {};     // { "Arawak": L.GeoJSON, ... }
 let familiasColors = {};     // { "Arawak": "#xxxxxx", ... }
@@ -234,6 +256,8 @@ async function cargarFamiliasLinguisticas() {
     } catch (e) {
         console.error("Error cargando Familias lingüísticas:", e);
     }
+    renderMobilePanel();
+
 }
 
 function crearControlFamilias(familias) {
@@ -372,10 +396,99 @@ async function cargarLenguasComoCapas() {
         const el = controlLenguas.getContainer();
         el.classList.add("leaflet-control-lenguajes");
     }, 0);
+    renderMobilePanel();
+
 }
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, m => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   }[m]));
 }
+function renderMobilePanel() {
+  if (!isMobileUI()) return;
+
+  // 1) Capas base (tablero + mapa base)
+  const baseEl = document.getElementById("panel-base");
+  if (baseEl) {
+    baseEl.innerHTML = `
+      ${renderToggle("toggle-tablero", "001 Tablero", !!layerTablero && map.hasLayer(layerTablero))}
+      ${renderToggle("toggle-mapabase", "001 Mapa base", !!layerMapabase && map.hasLayer(layerMapabase))}
+    `;
+
+    wireToggle("toggle-tablero", (checked) => {
+      if (!layerTablero) return;
+      checked ? layerTablero.addTo(map) : map.removeLayer(layerTablero);
+    });
+    wireToggle("toggle-mapabase", (checked) => {
+      if (!layerMapabase) return;
+      checked ? layerMapabase.addTo(map) : map.removeLayer(layerMapabase);
+    });
+  }
+
+  // 2) Familias (polígonos)
+  const famEl = document.getElementById("panel-familias");
+  if (famEl) {
+    const familias = Object.keys(familiasLayers || {}).sort((a,b)=>a.localeCompare(b));
+    famEl.innerHTML = familias.length
+      ? familias.map(f => renderLegendToggle(`fam-${slug(f)}`, f, familiasColors[f], map.hasLayer(familiasLayers[f]))).join("")
+      : `<div class="text-secondary small">Cargando familias…</div>`;
+
+    familias.forEach(f => {
+      wireToggle(`fam-${slug(f)}`, (checked) => {
+        const lyr = familiasLayers[f];
+        if (!lyr) return;
+        checked ? lyr.addTo(map) : map.removeLayer(lyr);
+      });
+    });
+  }
+
+  // 3) Lenguas (puntos) por familia
+  const lenEl = document.getElementById("panel-lenguas");
+  if (lenEl) {
+    const familias = Object.keys(familiasLenguasLayers || {}).sort((a,b)=>a.localeCompare(b));
+    lenEl.innerHTML = familias.length
+      ? familias.map(f => renderLegendToggle(`len-${slug(f)}`, f, coloresFamiliaLenguas[f], map.hasLayer(familiasLenguasLayers[f]))).join("")
+      : `<div class="text-secondary small">Cargando lenguas…</div>`;
+
+    familias.forEach(f => {
+      wireToggle(`len-${slug(f)}`, (checked) => {
+        const grp = familiasLenguasLayers[f];
+        if (!grp) return;
+        checked ? grp.addTo(map) : map.removeLayer(grp);
+      });
+    });
+  }
+}
+
+function renderToggle(id, label, checked) {
+  return `
+    <div class="form-check d-flex align-items-center justify-content-between py-1">
+      <label class="form-check-label" for="${id}">${label}</label>
+      <input class="form-check-input" type="checkbox" id="${id}" ${checked ? "checked" : ""}>
+    </div>
+  `;
+}
+
+function renderLegendToggle(id, label, color, checked) {
+  const dot = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color || "#777"};border:1px solid rgba(0,0,0,.2);margin-right:8px;"></span>`;
+  return `
+    <div class="form-check d-flex align-items-center justify-content-between py-1">
+      <label class="form-check-label" for="${id}" style="display:flex;align-items:center;gap:0;">
+        ${dot}<span>${escapeHtml(label)}</span>
+      </label>
+      <input class="form-check-input" type="checkbox" id="${id}" ${checked ? "checked" : ""}>
+    </div>
+  `;
+}
+
+function wireToggle(id, onChange) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.onchange = (e) => onChange(!!e.target.checked);
+}
+
+function slug(s) {
+  return String(s).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
+}
+
 

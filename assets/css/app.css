@@ -50,3 +50,14 @@
   border:1px solid rgba(0,0,0,.25);
   vertical-align: middle;
 }
+.map-canvas{
+  height: calc(100vh - 120px);
+}
+
+/* Móvil: el mapa no necesita “100vh” porque abajo aparece el panel */
+@media (max-width: 768px){
+  .map-canvas{
+    height: 58vh;          /* ajusta 50–65vh a gusto */
+    min-height: 360px;
+  }
+}
