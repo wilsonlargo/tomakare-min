@@ -1,12 +1,15 @@
 // assets/js/proyectos.js
 
-const { data: { session } } = await supabaseClient.auth.getSession();
 
-if (!session) {
-  window.location.href = "index.html";
-  return;
+init_text() 
+async function init_text() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+        window.location.href = "index.html";
+        return;
+    }
 }
-
 
 let current = {
     area_id: null,
