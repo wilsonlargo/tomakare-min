@@ -120,13 +120,36 @@ let layerGestiones = null;
 
 function initMap() {
     map = L.map("map", { zoomControl: false }).setView([4.65, -74.10], 6);
+    //https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    L.tileLayer("", {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
 
     layerGestiones = L.layerGroup().addTo(map);
+}
+function crearPanes() {
+    // Crea panes
+    map.createPane("pane1");
+    map.createPane("pane2");
+    map.createPane("pane3");
+    map.createPane("pane4");
+    map.createPane("pane5");
+    map.createPane("pane6");
+    map.createPane("labels");
+
+    // Orden (zIndex). Más alto = más arriba
+    map.getPane("pane1").style.zIndex = 100;
+    map.getPane("pane2").style.zIndex = 302;
+    map.getPane("pane3").style.zIndex = 403;
+    map.getPane("pane4").style.zIndex = 504;
+    map.getPane("pane5").style.zIndex = 605;
+    map.getPane("pane6").style.zIndex = 706;
+
+    // Labels arriba de todo
+    map.getPane("labels").style.zIndex = 850;
+    map.getPane("labels").style.pointerEvents = "none"; // para que no bloqueen clicks
 }
 
 /* -------------------- Supabase helpers -------------------- */
@@ -267,7 +290,7 @@ function pintarGestionesEnMapa(rows, depNombre) {
         const lng = Number(r[G_LNG]);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-       
+
         const mun = r[G_MUN] || "";
         const grupo = normText(r[G_GRUPO]) || "Sin grupo";
         const programa = normText(r[G_PROGRAMA]) || "Sin programa";
@@ -284,7 +307,8 @@ function pintarGestionesEnMapa(rows, depNombre) {
             color,
             fillColor: color,
             fillOpacity: 0.75,
-            weight: 1
+            weight: 1,
+            pane: "pane5"
         })
             .addTo(layerGestiones)
             .bindPopup(`
@@ -314,7 +338,7 @@ function pintarGestionesEnMapa(rows, depNombre) {
         </div>
         
         
-        `);
+        `, { pane: "labels" });
 
         bounds.push([lat, lng]);
         pintados++;
@@ -453,6 +477,8 @@ function initUI() {
 
 async function initApp() {
     initMap();
+    crearPanes();
+    await cargarCapasGIS();
     initUI();
     await cargarDepartamentos();
 
@@ -467,3 +493,122 @@ async function initApp() {
 document.addEventListener("DOMContentLoaded", () => {
     initApp().catch(err => console.error("initApp error:", err));
 });
+let layerBase = null;
+let layerMpios = null;
+let layerDeptos = null;
+// let layerTablero = null;
+
+async function cargarGeoJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`No pude cargar: ${url} (${r.status})`);
+    return await r.json();
+}
+
+function bindHover(layer, baseStyle, hoverStyle) {
+    layer.on("mouseover", () => layer.setStyle(hoverStyle));
+    layer.on("mouseout", () => layer.setStyle(baseStyle));
+}
+
+function initControlCapas() {
+    const chkDeptos = document.getElementById("chkDeptos");
+    const chkMpios = document.getElementById("chkMpios");
+
+    if (!chkDeptos || !chkMpios) return;
+
+    // Estado inicial según si están en el mapa
+    chkDeptos.checked = !!layerDeptos && map.hasLayer(layerDeptos);
+    chkMpios.checked = !!layerMpios && map.hasLayer(layerMpios);
+
+    chkDeptos.addEventListener("change", () => {
+        if (!layerDeptos) return;
+        if (chkDeptos.checked) {
+            layerDeptos.addTo(map);
+            layerDeptos.bringToFront();
+        } else {
+            map.removeLayer(layerDeptos);
+        }
+    });
+
+    chkMpios.addEventListener("change", () => {
+        if (!layerMpios) return;
+        if (chkMpios.checked) {
+            layerMpios.addTo(map);
+            layerMpios.bringToFront();
+        } else {
+            map.removeLayer(layerMpios);
+        }
+    });
+}
+
+async function cargarCapasGIS() {
+    // Ajusta si tu carpeta real difiere
+    const URL_BASE = "../GIS/Layers/001tablero.geojson";
+    const URL_DEPTO = "../GIS/Layers/003departamentos.geojson";
+    const URL_MPIO = "../GIS/Layers/004municipios.geojson";
+    // const URL_TABLERO = "GIS/Layers/001tablero.geojson";
+
+    const [base, deptos, mpios] = await Promise.all([
+        cargarGeoJSON(URL_BASE),
+        cargarGeoJSON(URL_DEPTO),
+        cargarGeoJSON(URL_MPIO),
+        // cargarGeoJSON(URL_TABLERO),
+    ]);
+
+    // (Opcional rendimiento)
+    const canvas = L.canvas();
+
+    // 1) Basemap
+    const baseStyle = { color: "white", weight: 1, fillOpacity: 1 };
+    layerBase = L.geoJSON(base, {
+        pane: "pane1",
+        style: baseStyle
+    }).addTo(map);
+
+
+
+
+    // 3) Departamentos
+    const depStyle = { color: "#495057", weight: 1.4, fillOpacity: 0 };
+    const depHover = { color: "#212529", weight: 2.2, fillOpacity: 0.2 };
+
+    layerDeptos = L.geoJSON(deptos, {
+        pane: "pane3",
+        style: depStyle,
+        onEachFeature: (f, lyr) => {
+            const n = f?.properties?.DPTO_CNMBR || "";
+            if (n) lyr.bindTooltip(n, { sticky: true });
+
+            bindHover(lyr, depStyle, depHover);
+        }
+    }).addTo(map);
+
+    // Ajusta vista a departamentos (o a tablero si lo activas)
+    const b = layerDeptos.getBounds();
+    if (b && b.isValid()) map.fitBounds(b, { padding: [20, 20] });
+
+
+    // 2) Municipios
+    const mpioStyle = { color: "black", weight: 1, fillOpacity: 1, fillColor: "lightgray" };
+    const mpioHover = { color: "#6c757d", weight: 1.2, fillOpacity: 1 };
+
+    layerMpios = L.geoJSON(mpios, {
+        pane: "pane4",
+        style: mpioStyle,
+        renderer: canvas,
+        onEachFeature: (f, lyr) => {
+            const m = f?.properties?.MPIO_CNMBR || "";
+            const d = f?.properties?.DEPTO || "";
+            if (m) lyr.bindTooltip(`${m}${d ? " — " + d : ""}`, { sticky: true });
+
+            bindHover(lyr, mpioStyle, mpioHover);
+        }
+    }).addTo(map);
+
+    console.log("Capas GIS cargadas:", {
+        base: !!layerBase,
+        municipios: !!layerMpios,
+        departamentos: !!layerDeptos
+    });
+    initControlCapas();
+
+}
