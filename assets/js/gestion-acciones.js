@@ -878,7 +878,7 @@ function updateHeatLegendUI() {
     }).join("");
 
     el.innerHTML = `
-    <div class="small text-muted mb-2">${label} por departamento (frecuencia = # deptos)</div>
+    <div class="small text-muted mb-2">${label} por departamento (frecuencia = * departamento)</div>
     ${items}
   `;
 }
