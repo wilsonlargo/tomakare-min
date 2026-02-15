@@ -1,13 +1,10 @@
 /* ============================================================
-   gestion-acciones.v4.js
-   - Marcadores por grupo (colores) + controles en panel para activar/desactivar por grupo
-   - Filtro "Todos" (default) en Departamentos y al iniciar muestra todos los marcadores
-   - NO trae / NO dibuja registros sin lat/lng
+   gestion-acciones.fixed.js  (ARREGLADO)
+   - Quita el error depNombre no definido
+   - Colores por "Grupo Interno de Trabajo"
+   - Leyenda en el panel (nombre + color, y conteo opcional)
+   - NO dibuja registros sin lat/lng (ni los trae desde Supabase)
    Contexto: Bootstrap + Bootstrap Icons + Leaflet + Supabase
-   Requiere en tu HTML:
-     - #selDepartamento, #selMunicipio, #map, #panelContenido
-     - (Opcional) switches #chkDeptos y #chkMpios si manejas capas GIS
-   Requiere: window.supabaseClient (ya autenticado)
    ============================================================ */
 
 /* -------------------- Config -------------------- */
@@ -25,7 +22,7 @@ const MUN_LAT = "lat";
 const MUN_LNG = "lng";
 const MUN_FK_DEP = "departamento_id";
 
-// En "gestion": columnas (según tu contexto)
+// En "gestion" (según tu contexto):
 const G_DEP = "Departamentos";
 const G_MUN = "Municipios";
 const G_LAT = "lat";
@@ -39,8 +36,6 @@ const G_SECTOR = "1 Pueblo /Sector"
 const G_ESTADO = "ESTADO"
 const G_PRESUPUESTO = "Presupuesto"
 const G_ID = "id"
-
-const DEP_ALL_VALUE = "__ALL__";
 
 /* -------------------- Helpers -------------------- */
 const $ = (id) => document.getElementById(id);
@@ -71,25 +66,57 @@ function colorFromHash(name) {
     return `hsl(${hue}, 55%, 42%)`;
 }
 
-function buildGroupColorMap(groups) {
-    const map = new Map();
+function buildGroupStats(rows) {
+    const groupSet = new Set();
+    const counts = new Map();
+
+    (rows || []).forEach(r => {
+        const g = normText(r[G_GRUPO]) || "Sin grupo";
+        groupSet.add(g);
+        counts.set(g, (counts.get(g) || 0) + 1);
+    });
+
+    const groups = Array.from(groupSet).sort((a, b) => a.localeCompare(b, "es"));
+
+    const colorMap = new Map();
     let i = 0;
     groups.forEach(g => {
-        if (map.has(g)) return;
         const color = i < GROUP_PALETTE.length ? GROUP_PALETTE[i] : colorFromHash(g);
-        map.set(g, color);
+        colorMap.set(g, color);
         i++;
     });
-    return map;
+
+    return { groups, colorMap, counts };
+}
+
+function renderLegend({ groups, colorMap, counts }) {
+    if (!groups.length) return "";
+
+    const items = groups.map(g => {
+        const c = colorMap.get(g) || "#6c757d";
+        const n = counts.get(g) || 0;
+        return `
+      <div class="d-flex align-items-center justify-content-between py-1">
+        <div class="d-flex align-items-center">
+          <span class="d-inline-block rounded-circle me-2" style="width:12px;height:12px;background:${c};"></span>
+          <span class="small">${g}</span>
+        </div>
+        <span class="badge text-bg-light border">${n}</span>
+      </div>
+    `;
+    }).join("");
+
+    return `
+    <div class="mt-3 border rounded p-3 bg-white">
+      <div class="fw-semibold mb-2"><i class="bi bi-palette me-2"></i>Leyenda por grupo</div>
+      ${items}
+    </div>
+  `;
 }
 
 /* -------------------- Leaflet -------------------- */
 let map = null;
 let layerGestiones = null;
-
-// Por grupo
-let groupLayers = new Map();       // grupo -> L.LayerGroup
-let groupVisibility = new Map();   // grupo -> boolean (persistente entre filtros)
 
 function initMap() {
     map = L.map("map", { zoomControl: false }).setView([4.65, -74.10], 6);
@@ -101,8 +128,6 @@ function initMap() {
     }).addTo(map);
 
     layerGestiones = L.layerGroup().addTo(map);
-
-
 }
 function crearPanes() {
     // Crea panes
@@ -115,7 +140,7 @@ function crearPanes() {
     map.createPane("labels");
 
     // Orden (zIndex). Más alto = más arriba
-    map.getPane("pane1").style.zIndex = 200;
+    map.getPane("pane1").style.zIndex = 100;
     map.getPane("pane2").style.zIndex = 302;
     map.getPane("pane3").style.zIndex = 403;
     map.getPane("pane4").style.zIndex = 504;
@@ -135,7 +160,7 @@ function sb() {
     return window.supabaseClient;
 }
 
-/* -------------------- Selects -------------------- */
+/* -------------------- Cargar selects -------------------- */
 async function cargarDepartamentos() {
     const sel = $("selDepartamento");
     if (!sel) throw new Error("No existe #selDepartamento en el HTML.");
@@ -150,20 +175,13 @@ async function cargarDepartamentos() {
     if (error) throw error;
 
     sel.innerHTML =
-        `<option value="${DEP_ALL_VALUE}">Todos</option>` +
+        `<option value="__ALL__" selected>Todos</option>` +
         (data || []).map(d => `<option value="${d[DEP_ID]}">${d[DEP_NOMBRE]}</option>`).join("");
 }
 
 async function cargarMunicipios(deptoId) {
     const selMun = $("selMunicipio");
     if (!selMun) throw new Error("No existe #selMunicipio en el HTML.");
-
-    // Si es "Todos", no cargamos lista completa (muy grande)
-    if (deptoId === DEP_ALL_VALUE) {
-        selMun.disabled = true;
-        selMun.innerHTML = `<option value="">(Todos los municipios)</option>`;
-        return;
-    }
 
     selMun.disabled = true;
     selMun.innerHTML = `<option value="">Cargando...</option>`;
@@ -187,28 +205,43 @@ async function cargarMunicipios(deptoId) {
     console.log("Municipios del departamento (lugar, lat, lng):", data || []);
 }
 
-/* -------------------- Gestión: traer + contar (solo con coord) -------------------- */
-async function traerGestionesTodas() {
-    const { data, error } = await sb()
-        .from(T_GESTION)
-        .select(`${G_MUN},${G_LAT},${G_LNG},"${G_ID}","${G_GRUPO}","${G_PROGRAMA}","${G_OBJETIVO}","${G_SECTOR}","${G_PRESUPUESTO}","${G_ESTADO}"`)
+/* -------------------- Conteos en gestion -------------------- */
+async function contarGestionesPorDepartamento(nombreDepartamento) {
+    const dep = normText(nombreDepartamento).toLowerCase();
+    if (!dep) return 0;
 
+    const { count, error } = await sb()
+        .from(T_GESTION)
+        .select(G_LAT, { count: "exact", head: true })
+        .ilike(G_DEP, dep)
         .not(G_LAT, "is", null)
         .not(G_LNG, "is", null);
 
     if (error) throw error;
-    return data || [];
+    return count || 0;
 }
 
-async function traerGestionesPorDepartamento(depNombre) {
-    const dep = normText(depNombre).toLowerCase();
-    if (!dep) return [];
+async function contarGestionesPorMunicipio(nombreMunicipio) {
+    const mun = normText(nombreMunicipio).toLowerCase();
+    if (!mun) return 0;
 
+    const { count, error } = await sb()
+        .from(T_GESTION)
+        .select(G_LAT, { count: "exact", head: true })
+        .ilike(G_MUN, mun)
+        .not(G_LAT, "is", null)
+        .not(G_LNG, "is", null);
+
+    if (error) throw error;
+    return count || 0;
+}
+
+/* -------------------- Pintar en el mapa -------------------- */
+
+async function traerGestionesTodas() {
     const { data, error } = await sb()
         .from(T_GESTION)
         .select(`${G_MUN},${G_LAT},${G_LNG},"${G_ID}","${G_GRUPO}","${G_PROGRAMA}","${G_OBJETIVO}","${G_SECTOR}","${G_PRESUPUESTO}","${G_ESTADO}"`)
-
-        .ilike(G_DEP, dep)
         .not(G_LAT, "is", null)
         .not(G_LNG, "is", null);
 
@@ -227,115 +260,28 @@ async function contarGestionesTodas() {
     return count || 0;
 }
 
-async function contarGestionesPorDepartamento(depNombre) {
-    const dep = normText(depNombre).toLowerCase();
-    if (!dep) return 0;
+async function traerGestionesPorDepartamento(nombreDepartamento) {
+    const dep = normText(nombreDepartamento).toLowerCase();
+    if (!dep) return [];
 
-    const { count, error } = await sb()
+    const { data, error } = await sb()
         .from(T_GESTION)
-        .select(G_LAT, { count: "exact", head: true })
+        // Importante: incluir grupo y filtrar sin coordenadas
+        .select(`${G_MUN},${G_LAT},${G_LNG},"${G_ID}","${G_GRUPO}","${G_PROGRAMA}","${G_OBJETIVO}","${G_SECTOR}","${G_PRESUPUESTO}","${G_ESTADO}"`)
         .ilike(G_DEP, dep)
         .not(G_LAT, "is", null)
         .not(G_LNG, "is", null);
 
     if (error) throw error;
-    return count || 0;
+    return data || [];
 }
 
-/* -------------------- Grupos: capas + controles -------------------- */
-function clearGroupLayers() {
-    if (!layerGestiones) return;
-    for (const [, lg] of groupLayers) {
-        layerGestiones.removeLayer(lg);
-    }
-    groupLayers.clear();
-}
-
-function toggleGrupo(grupo, visible) {
-    groupVisibility.set(grupo, visible);
-
-    const lg = groupLayers.get(grupo);
-    if (!lg || !layerGestiones) return;
-
-    if (visible) layerGestiones.addLayer(lg);
-    else layerGestiones.removeLayer(lg);
-}
-
-function renderLegendControls(stats) {
-    const { groups, colorMap, counts } = stats;
-    if (!groups.length) return "";
-
-    const items = groups.map(g => {
-        const c = colorMap.get(g) || "#6c757d";
-        const n = counts.get(g) || 0;
-        const id = `grp_${hashString(g)}`;
-        const checked = groupVisibility.has(g) ? groupVisibility.get(g) : true;
-
-        // Persistimos default
-        if (!groupVisibility.has(g)) groupVisibility.set(g, true);
-
-        return `
-      <div class="d-flex align-items-center justify-content-between py-1">
-        <div class="d-flex align-items-center">
-          <span class="d-inline-block rounded-circle me-2" style="width:12px;height:12px;background:${c};"></span>
-          <label class="small mb-0" for="${id}">${g}</label>
-          <span class="badge text-bg-light border ms-2">${n}</span>
-        </div>
-
-        <div class="form-check form-switch m-0">
-          <input class="form-check-input js-grp-toggle"
-                 type="checkbox"
-                 role="switch"
-                 id="${id}"
-                 data-grupo="${encodeURIComponent(g)}"
-                 ${checked ? "checked" : ""}>
-        </div>
-      </div>
-    `;
-    }).join("");
-
-    return `
-    <div class="mt-3 border rounded p-3 bg-white">
-      <div class="fw-semibold mb-2"><i class="bi bi-people me-2"></i>Grupos de gestión</div>
-      ${items}
-      <div class="small text-muted mt-2">
-        Activa/desactiva marcadores por <code>${G_GRUPO}</code>.
-      </div>
-    </div>
-  `;
-}
-
-function bindGroupToggleEvents() {
-    document.querySelectorAll(".js-grp-toggle").forEach(inp => {
-        inp.addEventListener("change", () => {
-            const grupo = decodeURIComponent(inp.dataset.grupo || "");
-            toggleGrupo(grupo, inp.checked);
-        });
-    });
-}
-
-/* -------------------- Pintar marcadores (por grupo) -------------------- */
-function pintarGestionesEnMapa(rows, tituloDepto) {
+function pintarGestionesEnMapa(rows, depNombre) {
     if (!map || !layerGestiones) return { groups: [], colorMap: new Map(), counts: new Map() };
 
-    // 1) limpiar lo anterior
     layerGestiones.clearLayers();
-    clearGroupLayers();
 
-    // 2) grupos + conteos
-    const counts = new Map();
-    (rows || []).forEach(r => {
-        const g = normText(r[G_GRUPO]) || "Sin grupo";
-        counts.set(g, (counts.get(g) || 0) + 1);
-    });
-
-    const groups = Array.from(counts.keys()).sort((a, b) => a.localeCompare(b, "es"));
-    const colorMap = buildGroupColorMap(groups);
-
-    // 3) crear una capa por grupo
-    groups.forEach(g => groupLayers.set(g, L.layerGroup()));
-
-    // 4) crear marcadores y meterlos en su grupo
+    const stats = buildGroupStats(rows);
     const bounds = [];
     let pintados = 0;
 
@@ -344,29 +290,30 @@ function pintarGestionesEnMapa(rows, tituloDepto) {
         const lng = Number(r[G_LNG]);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-        const mun = r[G_MUN] || "";
-        const depReal = r[G_DEP] || tituloDepto || "";
-        const grupo = normText(r[G_GRUPO]) || "Sin grupo";
-        const color = colorMap.get(grupo) || "#6c757d";
 
+        const mun = r[G_MUN] || "";
+        const grupo = normText(r[G_GRUPO]) || "Sin grupo";
         const programa = normText(r[G_PROGRAMA]) || "Sin programa";
         const objetivo = normText(r[G_OBJETIVO]) || "Sin objetivo";
         const sector = normText(r[G_SECTOR]) || "Sin sector";
         const estado = normText(r[G_ESTADO]) || "Sin estado";
         const id = normText(r[G_ID]) || "Sin estado";
         const presupuesto = normText(r[G_PRESUPUESTO]) || "Sin estado";
+        const color = stats.colorMap.get(grupo) || "#6c757d";
+        const depLabel = depNombre === "Todos" ? (r[G_DEP] || "") : depNombre;
 
-        const marker = L.circleMarker([lat, lng], {
+        L.circleMarker([lat, lng], {
             radius: 6,
-            color: "black",
+            color,
             fillColor: color,
             fillOpacity: 0.75,
             weight: 1,
-            pane: "pane4" // si no existe, Leaflet ignora
-        });
-
-        marker.bindPopup(`<strong>${mun}</strong>
-        
+            pane: "pane5"
+        })
+            .addTo(layerGestiones)
+            .bindPopup(`
+        <strong>${mun}</strong>
+        <br>${depNombre}<br>
         <div>
             <span class="small text-primary">${grupo}</span>
         </div>
@@ -389,30 +336,23 @@ function pintarGestionesEnMapa(rows, tituloDepto) {
         <div>
             <span class="small text-mute">${id}</span>
         </div>
-    `);
-
-        const gl = groupLayers.get(grupo);
-        if (gl) gl.addLayer(marker);
+        
+        
+        `, { pane: "labels" });
 
         bounds.push([lat, lng]);
         pintados++;
     });
 
-    // 5) aplicar visibilidad por grupo (por defecto: visible)
-    groups.forEach(g => {
-        const visible = groupVisibility.has(g) ? groupVisibility.get(g) : true;
-        groupVisibility.set(g, visible);
-        if (visible) layerGestiones.addLayer(groupLayers.get(g));
-    });
-
-    console.log(`Puntos pintados (${tituloDepto || "Todos"}):`, pintados);
+    console.log(`Gestiones (con coordenadas) en "${depNombre}":`, rows?.length || 0);
+    console.log(`Puntos pintados:`, pintados);
 
     if (bounds.length) map.fitBounds(bounds, { padding: [20, 20] });
 
-    return { groups, colorMap, counts };
+    return stats;
 }
 
-/* -------------------- UI -------------------- */
+/* -------------------- App Init -------------------- */
 function initUI() {
     // Panel inicial (sin variables no definidas)
     setPanel(`
@@ -420,8 +360,8 @@ function initUI() {
       <div class="d-flex align-items-center gap-2">
         <i class="bi bi-info-circle"></i>
         <div>
-          <div class="fw-semibold">Mapa de acciones</div>
-          <div class="small text-muted">Seleccione un departamento (o "Todos") y use los switches para filtrar por grupo.</div>
+          <div class="fw-semibold">Seleccione un departamento</div>
+          <div class="small text-muted">Se dibujan solo registros de <code>gestion</code> con <code>lat</code> y <code>lng</code>.</div>
         </div>
       </div>
     </div>
@@ -429,55 +369,89 @@ function initUI() {
 
     const selDep = $("selDepartamento");
     const selMun = $("selMunicipio");
-    if (!selDep || !selMun) throw new Error("Faltan #selDepartamento o #selMunicipio en el HTML.");
 
+    if (!selDep) throw new Error("No existe #selDepartamento en el HTML.");
+    if (!selMun) throw new Error("No existe #selMunicipio en el HTML.");
+
+    // Estado inicial municipios
+    selMun.innerHTML = `<option value="">Seleccione un departamento primero</option>`;
+    selMun.disabled = true;
+
+    // Listener: Departamento
     selDep.addEventListener("change", async () => {
         const depId = selDep.value;
+
+        if (!depId) {
+            layerGestiones?.clearLayers();
+            selMun.innerHTML = `<option value="">Seleccione un departamento primero</option>`;
+            selMun.disabled = true;
+            return;
+        }
+
+        // Caso especial: TODOS (default)
+        if (depId === "__ALL__") {
+            const depNombre = "Todos";
+
+            selMun.innerHTML = `<option value="">Todos los municipios</option>`;
+            selMun.disabled = true;
+
+            try {
+                const conteoTotal = await contarGestionesTodas();
+                const rows = await traerGestionesTodas();
+
+                const stats = pintarGestionesEnMapa(rows, depNombre);
+                const legendHtml = renderLegend(stats);
+
+                setPanel(`
+          <div class="border rounded p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold"><i class="bi bi-geo-alt me-2"></i>${depNombre}</div>
+              <span class="badge text-bg-secondary">${conteoTotal} gestiones</span>
+            </div>
+            <div class="small text-muted mt-2">
+              Colores por <code>${G_GRUPO}</code>. Solo se dibujan registros con coordenadas.
+            </div>
+          </div>
+          ${legendHtml}
+        `);
+            } catch (e) {
+                console.error(e);
+                setPanel(`<div class="alert alert-danger mb-0">Error cargando datos. Revise consola.</div>`);
+            }
+
+            return;
+        }
+
         const depNombre = selDep.selectedOptions[0]?.textContent || "";
 
         try {
-            // Municipios dependientes
             await cargarMunicipios(depId);
 
-            // Traer gestiones según depto
-            let rows = [];
-            let total = 0;
-            let titulo = depNombre || "Todos";
+            const conteoDep = await contarGestionesPorDepartamento(depNombre);
+            const rows = await traerGestionesPorDepartamento(depNombre);
 
-            if (depId === DEP_ALL_VALUE) {
-                rows = await traerGestionesTodas();
-                total = await contarGestionesTodas();
-                titulo = "Todos";
-            } else {
-                rows = await traerGestionesPorDepartamento(depNombre);
-                total = await contarGestionesPorDepartamento(depNombre);
-            }
-
-            // Pintar y generar controles por grupo
-            const stats = pintarGestionesEnMapa(rows, titulo);
-            const legend = renderLegendControls(stats);
+            const stats = pintarGestionesEnMapa(rows, depNombre);
+            const legendHtml = renderLegend(stats);
 
             setPanel(`
         <div class="border rounded p-3 bg-white">
           <div class="d-flex align-items-center justify-content-between">
-            <div class="fw-semibold"><i class="bi bi-geo-alt me-2"></i>${titulo}</div>
-            <span class="badge text-bg-secondary">${total} gestiones</span>
+            <div class="fw-semibold"><i class="bi bi-geo-alt me-2"></i>${depNombre}</div>
+            <span class="badge text-bg-secondary">${conteoDep} gestiones</span>
           </div>
-          <div class="small text-muted mt-2">Solo se dibujan registros con <code>lat</code> y <code>lng</code>.</div>
+          <div class="small text-muted mt-2">
+            Colores por <code>${G_GRUPO}</code>. Solo se dibujan registros con coordenadas.
+          </div>
         </div>
-        ${legend}
+        ${legendHtml}
       `);
-
-            // IMPORTANTE: después de pintar el HTML
-            bindGroupToggleEvents();
-
         } catch (e) {
             console.error(e);
             setPanel(`<div class="alert alert-danger mb-0">Error cargando datos. Revise consola.</div>`);
         }
     });
 
-    // Municipio: solo consola + centrar
+    // Listener: Municipio (solo consola + centrar)
     selMun.addEventListener("change", async () => {
         const opt = selMun.selectedOptions[0];
         if (!opt || !selMun.value) return;
@@ -488,13 +462,19 @@ function initUI() {
 
         console.log("Municipio seleccionado (tabla municipios):", { lugar, lat, lng });
 
-        if (Number.isFinite(lat) && Number.isFinite(lng) && map) {
-            map.flyTo([lat, lng], 10, { duration: 0.6 });
+        try {
+            const conteoMun = await contarGestionesPorMunicipio(lugar);
+            console.log(`Gestiones (con coordenadas) en gestion para municipio "${lugar}":`, conteoMun);
+
+            if (Number.isFinite(lat) && Number.isFinite(lng) && map) {
+                map.flyTo([lat, lng], 10, { duration: 0.6 });
+            }
+        } catch (e) {
+            console.error(e);
         }
     });
 }
 
-/* -------------------- App Init -------------------- */
 async function initApp() {
     initMap();
     crearPanes();
@@ -502,10 +482,10 @@ async function initApp() {
     initUI();
     await cargarDepartamentos();
 
-    // Default: Todos + dispara carga inicial
+    // Default: "Todos" y pintar todo al iniciar
     const selDep = $("selDepartamento");
     if (selDep) {
-        selDep.value = DEP_ALL_VALUE;
+        selDep.value = "__ALL__";
         selDep.dispatchEvent(new Event("change"));
     }
 }
@@ -513,38 +493,6 @@ async function initApp() {
 document.addEventListener("DOMContentLoaded", () => {
     initApp().catch(err => console.error("initApp error:", err));
 });
-
-function initControlCapas() {
-    const chkDeptos = document.getElementById("chkDeptos");
-    const chkMpios = document.getElementById("chkMpios");
-
-    if (!chkDeptos || !chkMpios) return;
-
-    // Estado inicial según si están en el mapa
-    chkDeptos.checked = !!layerDeptos && map.hasLayer(layerDeptos);
-    chkMpios.checked = !!layerMpios && map.hasLayer(layerMpios);
-
-    chkDeptos.addEventListener("change", () => {
-        if (!layerDeptos) return;
-        if (chkDeptos.checked) {
-            layerDeptos.addTo(map);
-            layerDeptos.bringToFront();
-        } else {
-            map.removeLayer(layerDeptos);
-        }
-    });
-
-    chkMpios.addEventListener("change", () => {
-        if (!layerMpios) return;
-        if (chkMpios.checked) {
-            layerMpios.addTo(map);
-            layerMpios.bringToFront();
-        } else {
-            map.removeLayer(layerMpios);
-        }
-    });
-}
-
 let layerBase = null;
 let layerMpios = null;
 let layerDeptos = null;
@@ -640,7 +588,7 @@ async function cargarCapasGIS() {
 
 
     // 2) Municipios
-    const mpioStyle = { color: "black", weight: 1, fillOpacity: 0.5, fillColor: "lightgray" };
+    const mpioStyle = { color: "black", weight: 1, fillOpacity: 1, fillColor: "lightgray" };
     const mpioHover = { color: "#6c757d", weight: 1.2, fillOpacity: 1 };
 
     layerMpios = L.geoJSON(mpios, {
