@@ -703,7 +703,14 @@ let depAggCache = null; // Map depKey -> { depName, benef, pres }
 let heatBreaks = [];      // 4 cortes (5 clases)
 let heatBinCounts = [];   // frecuencia por clase
 let heatMinMax = { min: 0, max: 0 }; // para leyenda
-const HEAT_COLORS = ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]; // YlOrRd (visible) // sobrio (azules)
+const HEAT_COLORS = [
+  "#fed976", // Nivel 3
+  "#feb24c", // Nivel 4
+  "#fd8d3c", // Nivel 5
+  "#fc4e2a", // Nivel 6
+  "#e31a1c", // Nivel 7
+  "#b10026"  // Nivel 8 (Máximo)
+];
 
 // formateadores
 const fmtInt = new Intl.NumberFormat("es-CO");
@@ -835,7 +842,8 @@ function updateHeatLegendUI() {
     [b[0], b[1]],
     [b[1], b[2]],
     [b[2], b[3]],
-    [b[3], null]
+    [b[3], null],
+    
   ];
 
   const items = ranges.map((r, i) => {
