@@ -85,6 +85,25 @@
               </div>
             </div>
 
+            
+            <!-- Mapa de calor (Departamentos) -->
+            <div class="mt-3 border rounded p-3 bg-white" id="heatmapBox">
+              <div class="fw-semibold mb-2"><i class="bi bi-thermometer-half me-2"></i>Mapa de calor (Departamentos)</div>
+
+              <div class="btn-group w-100" role="group" aria-label="Heatmap deptos">
+                <input type="radio" class="btn-check" name="hmDeptos" id="hmNone" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="hmNone">Ninguno</label>
+
+                <input type="radio" class="btn-check" name="hmDeptos" id="hmBenef" autocomplete="off" checked>
+                <label class="btn btn-outline-secondary" for="hmBenef">Beneficiarios</label>
+
+                <input type="radio" class="btn-check" name="hmDeptos" id="hmPres" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="hmPres">Presupuesto</label>
+              </div>
+
+              <div class="mt-3" id="heatLegend"></div>
+            </div>
+
             <div class="mt-3" id="panelContenido"></div>
           </div>
         </div>

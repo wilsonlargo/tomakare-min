@@ -360,7 +360,7 @@ function pintarGestionesEnMapa(rows, tituloDepto) {
             radius: 6,
             color: "black",
             fillColor: color,
-            fillOpacity: 0.75,
+            fillOpacity: 0.70,
             weight: 1,
             pane: "pane4" // si no existe, Leaflet ignora
         });
@@ -405,7 +405,7 @@ function pintarGestionesEnMapa(rows, tituloDepto) {
         if (visible) layerGestiones.addLayer(groupLayers.get(g));
     });
 
-    console.log(`Puntos pintados (${tituloDepto || "Todos"}):`, pintados);
+    //console.log(`Puntos pintados (${tituloDepto || "Todos"}):`, pintados);
 
     if (bounds.length) map.fitBounds(bounds, { padding: [20, 20] });
 
@@ -425,6 +425,7 @@ function initUI() {
         </div>
       </div>
     </div>
+      
   `);
 
     const selDep = $("selDepartamento");
@@ -625,14 +626,39 @@ async function cargarCapasGIS() {
 
     layerDeptos = L.geoJSON(deptos, {
         pane: "pane3",
-        style: depStyle,
+        style: styleDeptFeature, // ✅ usa la función (respeta heatMode)
         onEachFeature: (f, lyr) => {
             const n = f?.properties?.DPTO_CNMBR || "";
             if (n) lyr.bindTooltip(n, { sticky: true });
 
-            bindHover(lyr, depStyle, depHover);
+            // hover que respeta el heatmap
+            lyr.on("mouseover", () => lyr.setStyle(deptHoverStyle(lyr.feature)));
+            lyr.on("mouseout", () => lyr.setStyle(styleDeptFeature(lyr.feature)));
+
+            // click: popup con valor según modo actual
+            lyr.on("click", (e) => {
+                const depName = getDeptNameFromFeature(lyr.feature);
+                const val = heatMode === "none" ? null : getDeptValue(depName, heatMode);
+
+                const txt =
+                    heatMode === "benef" ? fmtInt.format(Math.round(val)) :
+                        heatMode === "pres" ? fmtCOP.format(Math.round(val)) :
+                            "";
+
+                L.popup()
+                    .setLatLng(e.latlng)
+                    .setContent(`
+          <div class="fw-semibold">${depName}</div>
+          ${heatMode === "none" ? `<div class="small text-muted">Sin mapa de calor</div>` : `
+            <div class="small text-muted">${heatMode === "benef" ? "Personas a impactar" : "Presupuesto"}</div>
+            <div>${txt}</div>
+          `}
+        `)
+                    .openOn(map);
+            });
         }
     }).addTo(map);
+
 
     // Ajusta vista a departamentos (o a tablero si lo activas)
     const b = layerDeptos.getBounds();
@@ -662,4 +688,258 @@ async function cargarCapasGIS() {
         departamentos: !!layerDeptos
     });
     initControlCapas();
+    // Heatmap deptos: engancha controles (radio buttons) una sola vez
+    bindHeatmapControls();
 }
+const G_BEN = "Personas a impactar";
+const G_PRES = "Presupuesto";
+// ===================== HEATMAP DEPARTAMENTOS =====================
+let heatMode = "none"; // "none" | "benef" | "pres"
+
+// cache agregados de gestion por departamento
+let depAggCache = null; // Map depKey -> { depName, benef, pres }
+
+// clasificación + leyenda
+let heatBreaks = [];      // 4 cortes (5 clases)
+let heatBinCounts = [];   // frecuencia por clase
+let heatMinMax = { min: 0, max: 0 }; // para leyenda
+const HEAT_COLORS = ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]; // YlOrRd (visible) // sobrio (azules)
+
+// formateadores
+const fmtInt = new Intl.NumberFormat("es-CO");
+const fmtCOP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+function normKey(s) {
+    return String(s ?? "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // quita tildes
+        .replace(/\s+/g, " ");
+}
+
+function parseNum(v) {
+    if (v == null) return 0;
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    // quita $ puntos, comas, espacios, etc. deja solo dígitos y signo
+    const s = String(v).replace(/[^\d-]/g, "");
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+}
+
+async function cargarAgregadosDepartamentos() {
+    if (depAggCache) return depAggCache;
+
+    // OJO: si tus columnas tienen mayúsculas, este select con comillas funciona mejor
+    const { data, error } = await window.supabaseClient
+        .from("gestion")
+        .select(`"${G_DEP}","${G_BEN}","${G_PRES}"`);
+
+    if (error) throw error;
+
+    const m = new Map();
+
+    (data || []).forEach(r => {
+        const dep = r?.[G_DEP];
+        if (!dep) return;
+        const key = normKey(dep);
+
+        const prev = m.get(key) || { depName: dep, benef: 0, pres: 0 };
+        prev.benef += parseNum(r?.[G_BEN]);
+        prev.pres += parseNum(r?.[G_PRES]);
+        m.set(key, prev);
+    });
+
+    depAggCache = m;
+    return m;
+}
+
+// cortes por cuantiles (5 clases)
+function computeQuantileBreaks(values, k = 5) {
+    const sorted = [...values].sort((a, b) => a - b);
+    if (!sorted.length) return [0, 0, 0, 0];
+
+    const breaks = [];
+    for (let i = 1; i < k; i++) {
+        const idx = Math.floor((i / k) * (sorted.length - 1));
+        breaks.push(sorted[idx]);
+    }
+
+    // asegurar que sean crecientes (si hay muchos iguales)
+    for (let i = 1; i < breaks.length; i++) {
+        if (breaks[i] < breaks[i - 1]) breaks[i] = breaks[i - 1];
+    }
+    return breaks;
+}
+
+function classIndex(v, breaks) {
+    for (let i = 0; i < breaks.length; i++) {
+        if (v <= breaks[i]) return i;
+    }
+    return breaks.length;
+}
+
+function getDeptNameFromFeature(f) {
+    return f?.properties?.DPTO_CNMBR || f?.properties?.DPTO || "";
+}
+
+function getDeptValue(depName, mode) {
+    const rec = depAggCache?.get(normKey(depName));
+    if (!rec) return 0;
+    return mode === "benef" ? rec.benef : rec.pres;
+}
+
+function styleDeptFeature(feature) {
+    // tu estilo base si NO hay calor
+    const base = { color: "#495057", weight: 1.4, fillOpacity: 0, fillColor: "transparent" };
+
+    if (!layerDeptos) return base;
+    if (heatMode === "none") return base;
+
+    const depName = getDeptNameFromFeature(feature);
+    const v = getDeptValue(depName, heatMode);
+    const idx = classIndex(v, heatBreaks);
+    const fill = HEAT_COLORS[idx] || HEAT_COLORS[0];
+
+    return {
+        color: "#212529",
+        weight: 1.2,
+        fillColor: fill,
+        fillOpacity: 0.70
+    };
+}
+
+function deptHoverStyle(feature) {
+    const s = styleDeptFeature(feature);
+    return { ...s, weight: (s.weight || 1.2) + 1 };
+}
+
+function updateHeatLegendUI() {
+  const el = document.getElementById("heatLegend");
+  if (!el) return;
+
+  if (heatMode === "none") {
+    el.innerHTML = `<div class="small text-muted">Mapa de calor desactivado.</div>`;
+    return;
+  }
+
+  const isBenef = heatMode === "benef";
+  const fmt = isBenef ? (n) => fmtInt.format(Math.round(n)) : (n) => fmtCOP.format(Math.round(n));
+  const label = isBenef ? "Personas a impactar" : "Presupuesto";
+
+  const b = heatBreaks; // 4 breaks => 5 clases
+  const min = heatMinMax?.min ?? 0;
+
+  const ranges = [
+    [min, b[0]],
+    [b[0], b[1]],
+    [b[1], b[2]],
+    [b[2], b[3]],
+    [b[3], null]
+  ];
+
+  const items = ranges.map((r, i) => {
+    const left = fmt(r[0]);
+    const right = r[1] == null ? "más" : fmt(r[1]);
+    const freq = heatBinCounts[i] || 0;
+
+    return `
+      <div class="d-flex align-items-center justify-content-between py-1">
+        <div class="d-flex align-items-center">
+          <span class="d-inline-block rounded me-2" style="width:14px;height:14px;background:${HEAT_COLORS[i]};border:1px solid #dee2e6;"></span>
+          <span class="small">${left} – ${right}</span>
+        </div>
+        <span class="badge text-bg-light border">${freq}</span>
+      </div>
+    `;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="small text-muted mb-2">${label} por departamento (frecuencia = # deptos)</div>
+    ${items}
+  `;
+}
+
+async function aplicarCalorDepartamentos(mode) {
+    heatMode = mode;
+
+    if (!layerDeptos) return;
+
+    // recalcular breaks y frecuencia
+    if (heatMode === "none") {
+        layerDeptos.setStyle(styleDeptFeature);
+        updateHeatLegendUI();
+        return;
+    }
+
+    await cargarAgregadosDepartamentos();
+
+    // valores por cada feature (depto)
+    const values = [];
+    const binCounts = [0, 0, 0, 0, 0];
+
+    layerDeptos.eachLayer(lyr => {
+        const depName = getDeptNameFromFeature(lyr.feature);
+        const v = getDeptValue(depName, heatMode);
+        values.push(v);
+    });
+
+    heatMinMax = values.length ? { min: Math.min(...values), max: Math.max(...values) } : { min: 0, max: 0 };
+
+  heatBreaks = computeQuantileBreaks(values, 5);
+
+    // bin frequency
+    values.forEach(v => {
+        const idx = classIndex(v, heatBreaks);
+        binCounts[idx] = (binCounts[idx] || 0) + 1;
+    });
+    heatBinCounts = binCounts;
+
+    // aplicar estilo
+    layerDeptos.setStyle(styleDeptFeature);
+    updateHeatLegendUI();
+
+
+}
+
+
+function renderHeatmapControls() {
+    // Se renderiza dentro del panel (Bootstrap)
+    return `
+    <div class="mt-3 border rounded p-3 bg-white">
+      <div class="fw-semibold mb-2"><i class="bi bi-thermometer-half me-2"></i>Mapa de calor (Departamentos)</div>
+
+      <div class="btn-group w-100" role="group" aria-label="Heatmap deptos">
+        <input type="radio" class="btn-check" name="hmDeptos" id="hmNone" autocomplete="off" ${heatMode === "none" ? "checked" : ""}>
+        <label class="btn btn-outline-secondary" for="hmNone">Ninguno</label>
+
+        <input type="radio" class="btn-check" name="hmDeptos" id="hmBenef" autocomplete="off" ${heatMode === "benef" ? "checked" : ""}>
+        <label class="btn btn-outline-secondary" for="hmBenef">Beneficiarios</label>
+
+        <input type="radio" class="btn-check" name="hmDeptos" id="hmPres" autocomplete="off" ${heatMode === "pres" ? "checked" : ""}>
+        <label class="btn btn-outline-secondary" for="hmPres">Presupuesto</label>
+      </div>
+
+      <div class="mt-3" id="heatLegend"></div>
+    </div>
+  `;
+}
+
+function bindHeatmapControls() {
+    const a = document.getElementById("hmNone");
+    const b = document.getElementById("hmBenef");
+    const c = document.getElementById("hmPres");
+    if (!a || !b || !c) return;
+
+    a.addEventListener("change", () => a.checked && aplicarCalorDepartamentos("none"));
+    b.addEventListener("change", () => b.checked && aplicarCalorDepartamentos("benef"));
+    c.addEventListener("change", () => c.checked && aplicarCalorDepartamentos("pres"));
+
+    updateHeatLegendUI();
+
+    // Pintar inmediatamente según selección actual
+    mode = b.checked ? "benef" : (c.checked ? "pres" : "none");
+    aplicarCalorDepartamentos(mode).catch(console.error);
+}
+
+// =================== FIN HEATMAP DEPARTAMENTOS ===================
