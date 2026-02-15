@@ -92,20 +92,8 @@ let groupLayers = new Map();       // grupo -> L.LayerGroup
 let groupVisibility = new Map();   // grupo -> boolean (persistente entre filtros)
 
 function initMap() {
-    map = L.map("map", { 
-        zoomControl: false,
-        zoomSnap: 0.25,
-        // 2. Define cuánto cambia el zoom al hacer clic en los botones + o -
-        zoomDelta: 0.25,
-        // 3. Suaviza el zoom de la rueda del ratón (60px es 1 nivel, 240px lo hace más lento)
-        wheelPxPerZoomLevel: 240
-
-
-     }).setView([4.65, -74.10], 6);
+    map = L.map("map", { zoomControl: false }).setView([4.65, -74.10], 6);
     //https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
-
-
-
 
     L.tileLayer("", {
         maxZoom: 19,
@@ -714,17 +702,14 @@ let depAggCache = null; // Map depKey -> { depName, benef, pres }
 // clasificación + leyenda
 let heatBreaks = [];      // 4 cortes (5 clases)
 let heatBinCounts = [];   // frecuencia por clase
-let heatMinMax = { min: 0, max: 0 }; const HEAT_CLASSES = 8;
-// para leyenda
+let heatMinMax = { min: 0, max: 0 }; // para leyenda
 const HEAT_COLORS = [
-    "#ffffcc",
-    "#ffeda0",
-    "#fed976",
-    "#feb24c",
-    "#fd8d3c",
-    "#fc4e2a",
-    "#e31a1c",
-    "#b10026"
+  "#fed976", // Nivel 3
+  "#feb24c", // Nivel 4
+  "#fd8d3c", // Nivel 5
+  "#fc4e2a", // Nivel 6
+  "#e31a1c", // Nivel 7
+  "#b10026"  // Nivel 8 (Máximo)
 ];
 
 // formateadores
@@ -837,36 +822,36 @@ function deptHoverStyle(feature) {
 }
 
 function updateHeatLegendUI() {
-    const el = document.getElementById("heatLegend");
-    if (!el) return;
+  const el = document.getElementById("heatLegend");
+  if (!el) return;
 
-    if (heatMode === "none") {
-        el.innerHTML = `<div class="small text-muted">Mapa de calor desactivado.</div>`;
-        return;
-    }
+  if (heatMode === "none") {
+    el.innerHTML = `<div class="small text-muted">Mapa de calor desactivado.</div>`;
+    return;
+  }
 
-    const isBenef = heatMode === "benef";
-    const fmt = isBenef ? (n) => fmtInt.format(Math.round(n)) : (n) => fmtCOP.format(Math.round(n));
-    const label = isBenef ? "Personas a impactar" : "Presupuesto";
+  const isBenef = heatMode === "benef";
+  const fmt = isBenef ? (n) => fmtInt.format(Math.round(n)) : (n) => fmtCOP.format(Math.round(n));
+  const label = isBenef ? "Personas a impactar" : "Presupuesto";
 
-    const b = heatBreaks; // breaks (HEAT_CLASSES-1)
-    const min = heatMinMax?.min ?? 0;
+  const b = heatBreaks; // 4 breaks => 5 clases
+  const min = heatMinMax?.min ?? 0;
 
-    // Rangos dinámicos (HEAT_CLASSES)
-    const ranges = [];
-    let start = min;
-    for (let i = 0; i < b.length; i++) {
-        ranges.push([start, b[i]]);
-        start = b[i];
-    }
-    ranges.push([start, null]);
+  const ranges = [
+    [min, b[0]],
+    [b[0], b[1]],
+    [b[1], b[2]],
+    [b[2], b[3]],
+    [b[3], null],
+    
+  ];
 
-    const items = ranges.map((r, i) => {
-        const left = fmt(r[0]);
-        const right = r[1] == null ? "más" : fmt(r[1]);
-        const freq = heatBinCounts[i] || 0;
+  const items = ranges.map((r, i) => {
+    const left = fmt(r[0]);
+    const right = r[1] == null ? "más" : fmt(r[1]);
+    const freq = heatBinCounts[i] || 0;
 
-        return `
+    return `
       <div class="d-flex align-items-center justify-content-between py-1">
         <div class="d-flex align-items-center">
           <span class="d-inline-block rounded me-2" style="width:14px;height:14px;background:${HEAT_COLORS[i]};border:1px solid #dee2e6;"></span>
@@ -875,9 +860,9 @@ function updateHeatLegendUI() {
         <span class="badge text-bg-light border">${freq}</span>
       </div>
     `;
-    }).join("");
+  }).join("");
 
-    el.innerHTML = `
+  el.innerHTML = `
     <div class="small text-muted mb-2">${label} por departamento (frecuencia = # deptos)</div>
     ${items}
   `;
@@ -899,7 +884,7 @@ async function aplicarCalorDepartamentos(mode) {
 
     // valores por cada feature (depto)
     const values = [];
-    const binCounts = new Array(HEAT_CLASSES).fill(0);
+    const binCounts = [0, 0, 0, 0, 0];
 
     layerDeptos.eachLayer(lyr => {
         const depName = getDeptNameFromFeature(lyr.feature);
@@ -909,7 +894,7 @@ async function aplicarCalorDepartamentos(mode) {
 
     heatMinMax = values.length ? { min: Math.min(...values), max: Math.max(...values) } : { min: 0, max: 0 };
 
-    heatBreaks = computeQuantileBreaks(values, HEAT_CLASSES);
+  heatBreaks = computeQuantileBreaks(values, 5);
 
     // bin frequency
     values.forEach(v => {
