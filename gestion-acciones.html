@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gestión | Mapa de acciones</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Leaflet (CSS obligatorio) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- CSS propio -->
+    <link rel="stylesheet" href="assets/css/gestion-acciones.css">
+</head>
+
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand">Gestión · Dashboard</span>
+            <div class="ms-auto d-flex gap-2">
+                <a class="btn btn-outline-light btn-sm" href="./proyectos.html">Proyectos</a>
+                <a class="btn btn-outline-light btn-sm" href="./gestion-dashboard.html">Gestion</a>
+            </div>
+        </div>
+    </nav>
+    <div class="row g-2 align-items-end m-4">
+        <div class="col-md-6">
+            <label class="form-label">
+                <i class="bi bi-geo-alt"></i> Departamento
+            </label>
+            <select id="selDepartamento" class="form-select">
+                <option value="">Cargando...</option>
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">
+                <i class="bi bi-pin-map"></i> Municipio
+            </label>
+            <select id="selMunicipio" class="form-select" disabled>
+                <option value="">Seleccione un departamento primero</option>
+            </select>
+        </div>
+    </div>
+<div class="container-fluid py-3">
+  <div class="row g-3">
+    <!-- MAPA -->
+    <div class="col-12 col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-body p-2">
+          <!-- Leaflet necesita altura explícita -->
+          <div id="map" class="w-100 rounded" style="height: 75vh; min-height: 420px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL (leyendas/controles fuera del mapa) -->
+    <div class="col-12 col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white d-flex align-items-center gap-2">
+          <i class="bi bi-sliders"></i>
+          <strong>Panel</strong>
+        </div>
+        <div class="card-body">
+          <div class="text-muted small">
+            Aquí irán leyendas, filtros y controles (fuera del mapa).
+          </div>
+
+          <div class="mt-3" id="panelContenido"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Supabase JS + tu cliente -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="assets/js/supabaseClient.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- JS propio -->
+    <script src="assets/js/gestion-acciones.js"></script>
+</body>
+
+</html>

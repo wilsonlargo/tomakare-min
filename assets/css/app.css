@@ -60,3 +60,6 @@
     min-height: 360px;
   }
 }
+/* [P2-B1] Items de leyenda */
+.legend-item { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.legend-dot  { width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.2); }
