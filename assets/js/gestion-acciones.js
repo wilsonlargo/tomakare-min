@@ -267,7 +267,7 @@ async function traerGestionesPorDepartamento(nombreDepartamento) {
     const { data, error } = await sb()
         .from(T_GESTION)
         // Importante: incluir grupo y filtrar sin coordenadas
-        .select(`${G_DEP},${G_MUN},${G_LAT},${G_LNG},"${G_GRUPO}"`)
+        .select(`${G_MUN},${G_LAT},${G_LNG},"${G_ID}","${G_GRUPO}","${G_PROGRAMA}","${G_OBJETIVO}","${G_SECTOR}","${G_PRESUPUESTO}","${G_ESTADO}"`)
         .ilike(G_DEP, dep)
         .not(G_LAT, "is", null)
         .not(G_LNG, "is", null);
