@@ -163,17 +163,6 @@ function renderMVRows() {
 /* =========================
    PROYECTO / DEP / MUN
 ========================= */
-/* =========================
-   PROYECTO / DEP / MUN (Catálogos + Territorialización múltiple)
-========================= */
-
-// caches catálogos
-let cacheDepartamentosCatalogo = [];
-let cacheMunicipiosCatalogo = [];
-
-// draft de territorios (proyecto_territorios)
-let territoriosDraft = [];
-
 async function loadDepartamentos() {
   const sel = document.getElementById("inpDepartamento");
   if (!sel) return;
@@ -182,243 +171,52 @@ async function loadDepartamentos() {
 
   const { data, error } = await supabaseClient
     .from("departamentos")
-    .select("id, departamento, macroregion")
+    .select("departamento, macroregion")
     .order("departamento", { ascending: true });
 
   if (error) throw error;
 
-  cacheDepartamentosCatalogo = data || [];
-
   sel.innerHTML = `<option value="">Seleccione…</option>`;
   sel.insertAdjacentHTML(
     "beforeend",
-    (cacheDepartamentosCatalogo || [])
+    (data || [])
       .map((d) => {
         const label = d.macroregion ? `${d.departamento} — ${d.macroregion}` : d.departamento;
-        return `<option value="${escapeHtml(d.id)}" data-dep="${escapeHtml(d.departamento)}">${escapeHtml(label)}</option>`;
+        return `<option value="${escapeHtml(d.departamento)}">${escapeHtml(label)}</option>`;
       })
       .join("")
   );
 }
 
-function getSelectedDepartamentoMeta() {
-  const sel = document.getElementById("inpDepartamento");
-  const opt = sel?.selectedOptions?.[0];
-  return {
-    id: sel?.value || "",
-    nombre: opt?.dataset?.dep || "",
-  };
-}
-
-function getSelectedMunicipioMeta() {
-  const sel = document.getElementById("inpMunicipio");
-  const opt = sel?.selectedOptions?.[0];
-  return {
-    id: sel?.value || "",
-    lugar: opt?.dataset?.lugar || "",
-    lat: opt?.dataset?.lat || "",
-    lng: opt?.dataset?.lng || "",
-  };
-}
-
-async function loadMunicipiosByDepartamento(departamentoId, selected = null) {
+async function loadMunicipiosByDepartamento(dep, selected = null) {
   const sel = document.getElementById("inpMunicipio");
   if (!sel) return;
 
   sel.innerHTML = `<option value="">Seleccione…</option>`;
   sel.disabled = true;
-  cacheMunicipiosCatalogo = [];
 
-  if (!departamentoId) return;
+  if (!dep) return;
 
   const { data, error } = await supabaseClient
     .from("municipios")
-    .select("id, lugar, lat, lng, departamento_id")
-    .eq("departamento_id", departamentoId)
+    .select("lugar")
+    .eq("departamento", dep)
     .order("lugar", { ascending: true });
 
   if (error) throw error;
 
-  cacheMunicipiosCatalogo = data || [];
-
   sel.insertAdjacentHTML(
     "beforeend",
-    (cacheMunicipiosCatalogo || [])
+    (data || [])
       .map((m) => {
-        const isSel =
-          selected &&
-          (String(selected) === String(m.id) || String(selected).toLowerCase() === String(m.lugar).toLowerCase());
-        return `<option
-                  value="${escapeHtml(m.id)}"
-                  data-lugar="${escapeHtml(m.lugar)}"
-                  data-lat="${escapeHtml(m.lat ?? "")}"
-                  data-lng="${escapeHtml(m.lng ?? "")}"
-                  ${isSel ? "selected" : ""}>${escapeHtml(m.lugar)}</option>`;
+        const v = m.lugar;
+        const isSel = selected && String(selected) === String(v);
+        return `<option value="${escapeHtml(v)}" ${isSel ? "selected" : ""}>${escapeHtml(v)}</option>`;
       })
       .join("")
   );
 
   sel.disabled = false;
-
-  // sincroniza lat/lng si existe el bloque de territorios
-  syncTerritorioInputsFromMunicipio();
-}
-
-/* ---------- Territorialización múltiple (UI + Supabase) ---------- */
-
-function syncTerritorioInputsFromMunicipio() {
-  const meta = getSelectedMunicipioMeta();
-  const inpLat = document.getElementById("inpTerrLat");
-  const inpLng = document.getElementById("inpTerrLng");
-  if (inpLat) inpLat.value = meta.lat || "";
-  if (inpLng) inpLng.value = meta.lng || "";
-}
-
-function parseFloatSafe(v) {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
-
-function renderTerritoriosRows() {
-  const tb = document.getElementById("tblTerritoriosRows");
-  const badge = document.getElementById("badgeTerritorios");
-  const msg = document.getElementById("msgTerritorios");
-
-  if (badge) badge.textContent = String((territoriosDraft || []).length);
-
-  if (!tb) return; // si aún no pegaste el bloque HTML, no revienta
-
-  if (!Array.isArray(territoriosDraft) || territoriosDraft.length === 0) {
-    tb.innerHTML = `<tr><td colspan="6" class="text-muted">Sin territorios agregados.</td></tr>`;
-    if (msg) msg.textContent = "";
-    return;
-  }
-
-  tb.innerHTML = territoriosDraft
-    .map((t, i) => {
-      return `
-        <tr>
-          <td class="text-nowrap">${escapeHtml(t.departamento_nombre || "")}</td>
-          <td class="text-nowrap">${escapeHtml(t.municipio_lugar || "")}</td>
-          <td>${escapeHtml(t.lugar_detalle || "")}</td>
-          <td class="text-nowrap">${escapeHtml(t.lat ?? "")}</td>
-          <td class="text-nowrap">${escapeHtml(t.lng ?? "")}</td>
-          <td class="text-end">
-            <button class="btn btn-sm btn-outline-danger" type="button" data-ter-del="${i}">
-              <i class="bi bi-x-lg"></i>
-            </button>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  tb.querySelectorAll("[data-ter-del]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const i = parseInt(btn.dataset.terDel, 10);
-      territoriosDraft.splice(i, 1);
-      renderTerritoriosRows();
-    });
-  });
-
-  if (msg) msg.textContent = "Se guarda en proyecto_territorios al oprimir “Guardar cambios”.";
-}
-
-function addTerritorioDraftFromUI() {
-  const dep = getSelectedDepartamentoMeta();
-  const mun = getSelectedMunicipioMeta();
-
-  if (!dep.id) {
-    setMsg("Selecciona un departamento para agregar territorio.", "warning");
-    return;
-  }
-  if (!mun.id) {
-    setMsg("Selecciona un municipio para agregar territorio.", "warning");
-    return;
-  }
-
-  // evitar duplicados por municipio
-  if ((territoriosDraft || []).some((x) => String(x.municipio_id) === String(mun.id))) {
-    setMsg("Ese municipio ya está agregado en este proyecto.", "warning");
-    return;
-  }
-
-  const detalle = document.getElementById("inpTerrLugarDetalle")?.value?.trim() || null;
-  const lat = parseFloatSafe(document.getElementById("inpTerrLat")?.value);
-  const lng = parseFloatSafe(document.getElementById("inpTerrLng")?.value);
-
-  territoriosDraft.push({
-    departamento_id: dep.id,
-    municipio_id: mun.id,
-    departamento_nombre: dep.nombre || null,
-    municipio_lugar: mun.lugar || null,
-    lugar_detalle: detalle,
-    lat,
-    lng,
-    fuente_coord: "catálogo municipios",
-  });
-
-  renderTerritoriosRows();
-}
-
-async function loadTerritoriosProyecto() {
-  const tb = document.getElementById("tblTerritoriosRows");
-  if (tb) tb.innerHTML = `<tr><td colspan="6" class="text-muted">Cargando territorios…</td></tr>`;
-
-  const { data, error } = await supabaseClient
-    .from("proyecto_territorios")
-    .select("departamento_id, municipio_id, departamento_nombre, municipio_lugar, lugar_detalle, lat, lng, fuente_coord, created_at")
-    .eq("proyecto_id", proyectoId)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("LOAD territorios error:", error);
-    territoriosDraft = [];
-    renderTerritoriosRows();
-    return;
-  }
-
-  territoriosDraft = (data || []).map((r) => ({
-    departamento_id: r.departamento_id,
-    municipio_id: r.municipio_id,
-    departamento_nombre: r.departamento_nombre,
-    municipio_lugar: r.municipio_lugar,
-    lugar_detalle: r.lugar_detalle,
-    lat: r.lat,
-    lng: r.lng,
-    fuente_coord: r.fuente_coord,
-  }));
-
-  renderTerritoriosRows();
-}
-
-async function saveTerritoriosProyecto() {
-  if (!Array.isArray(territoriosDraft)) territoriosDraft = [];
-
-  // Estrategia simple y estable: borrar + insertar
-  const { error: delError } = await supabaseClient
-    .from("proyecto_territorios")
-    .delete()
-    .eq("proyecto_id", proyectoId);
-
-  if (delError) throw delError;
-
-  if (territoriosDraft.length === 0) return;
-
-  const rows = territoriosDraft.map((t) => ({
-    proyecto_id: proyectoId,
-    departamento_id: t.departamento_id || null,
-    municipio_id: t.municipio_id,
-    departamento_nombre: t.departamento_nombre || null,
-    municipio_lugar: t.municipio_lugar || null,
-    lugar_detalle: t.lugar_detalle || null,
-    lat: t.lat ?? null,
-    lng: t.lng ?? null,
-    fuente_coord: t.fuente_coord || "catálogo municipios",
-  }));
-
-  const { error } = await supabaseClient.from("proyecto_territorios").insert(rows);
-  if (error) throw error;
 }
 
 async function loadProyecto() {
@@ -454,26 +252,8 @@ async function loadProyecto() {
   setVal("inpNombrePoblacion", data.nombre_poblacion);
 
   await loadDepartamentos();
-
-  // Mapear proyecto.departamento (texto) -> departamentos.id (uuid)
-  const depTxt = (data.departamento ?? "").trim();
-  const depRow = (cacheDepartamentosCatalogo || []).find(d => String(d.departamento || "").trim().toLowerCase() === depTxt.toLowerCase());
-  const depId = depRow?.id || "";
-
-  document.getElementById("inpDepartamento").value = depId;
-
-  await loadMunicipiosByDepartamento(depId, null);
-
-  // Mapear proyecto.municipio (texto) -> municipios.id (bigint) por lugar
-  const munTxt = (data.municipio ?? "").trim();
-  const munRow = (cacheMunicipiosCatalogo || []).find(m => String(m.lugar || "").trim().toLowerCase() === munTxt.toLowerCase());
-  if (munRow) {
-    document.getElementById("inpMunicipio").value = String(munRow.id);
-  }
-
-  syncTerritorioInputsFromMunicipio();
-  await loadTerritoriosProyecto();
-
+  document.getElementById("inpDepartamento").value = data.departamento ?? "";
+  await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
   pintarTotalesObjetivos(data.id)
 }
 
@@ -509,20 +289,10 @@ async function guardarCambios() {
     };
 
     const { error } = await supabaseClient.from("proyecto").update(payload).eq("id", proyectoId);
-if (error) throw error;
+    if (error) throw error;
 
-// Guardar territorialización múltiple (si el usuario agregó territorios)
-try {
-  await saveTerritoriosProyecto();
-} catch (e) {
-  console.error("SAVE territorios error:", e);
-  setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
-  document.getElementById("lblProyecto").textContent = nombre;
-  return;
-}
-
-document.getElementById("lblProyecto").textContent = nombre;
-setMsg("✅ Cambios guardados.", "success");
+    document.getElementById("lblProyecto").textContent = nombre;
+    setMsg("✅ Cambios guardados.", "success");
   } catch (e) {
     console.error("UPDATE ERROR:", e);
     setMsg("❌ " + (e.message || e), "danger");
@@ -1159,18 +929,6 @@ async function init() {
       setMsg("No pude cargar municipios: " + (err.message || err), "danger");
     }
   });
-
-  // al cambiar municipio, autollenar lat/lng del bloque de territorios (si existe)
-  document.getElementById("inpMunicipio")?.addEventListener("change", () => {
-    syncTerritorioInputsFromMunicipio();
-  });
-
-  // botón Agregar territorio (Territorialización múltiple)
-  document.getElementById("btnAddTerritorio")?.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    addTerritorioDraftFromUI();
-  });
-
 
   document.getElementById("btnLogout")?.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
