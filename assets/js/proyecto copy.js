@@ -905,7 +905,7 @@ function validateBitForm() {
   if (!fi) return "La fecha de realización (inicio) es obligatoria.";
   if (pt <= 0) return "El total de participantes debe ser mayor a 0.";
   if (!Array.isArray(bitLugaresDraft) || bitLugaresDraft.length === 0) return "Agrega al menos un lugar.";
-  if (contenido.length < 200) return "El contenido es muy corto. Mínimo 300 caracteres.";
+  if (contenido.length < 300) return "El contenido es muy corto. Mínimo 300 caracteres.";
   return null;
 }
 
@@ -964,6 +964,53 @@ async function copyTextToClipboard(text) {
   }
 }
 
+async function fetchProductosValidadosConEvidencia(actividadId) {
+  try {
+    if (!actividadId) return [];
+
+    const { data, error } = await supabaseClient
+      .from("producto")
+      .select("descripcion, estado, medios_verificacion, orden, created_at")
+      .eq("actividad_id", actividadId)
+      .order("orden", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    const norm = (s) => String(s ?? "").trim().toLowerCase();
+
+    const extractUrls = (mv) => {
+      if (!mv) return [];
+      if (Array.isArray(mv)) {
+        return mv
+          .map((x) => {
+            if (!x) return "";
+            if (typeof x === "string") return x;
+            if (typeof x === "object") return x.url || x.link || x.href || "";
+            return "";
+          })
+          .filter(Boolean);
+      }
+      if (typeof mv === "object") return [mv.url || mv.link || mv.href].filter(Boolean);
+      if (typeof mv === "string") {
+        const matches = mv.match(/https?:\/\/\S+/g);
+        return (matches || []).map((u) => u.replace(/[),.;]+$/g, ""));
+      }
+      return [];
+    };
+
+    return (data || [])
+      .filter((p) => norm(p.estado) === "validado" || norm(p.estado) === "validada")
+      .map((p) => {
+        const urls = extractUrls(p.medios_verificacion);
+        return { producto: p.descripcion || "", urls };
+      });
+  } catch (e) {
+    console.error("FETCH productos validados ERROR:", e);
+    return [];
+  }
+}
+
 async function copyBitacora(reporteId) {
   const row = bitCacheById.get(reporteId);
   if (!row) return setMsgBit("No encontré ese reporte para copiar.", "warning");
@@ -975,12 +1022,34 @@ async function copyBitacora(reporteId) {
 
   const lugares = Array.isArray(row.lugares) ? row.lugares : [];
   const lugaresTxt = lugares
-    .map((l) => `${l.departamento || ""} — ${l.municipio || ""}${l.detalle ? " — " + l.detalle : ""}`.replace(/^ — /, "").trim())
+    .map((l) =>
+      `${l.departamento || ""} — ${l.municipio || ""}${l.detalle ? " — " + l.detalle : ""}`
+        .replace(/^ — /, "")
+        .trim()
+    )
     .filter(Boolean)
     .map((x) => `- ${x}`)
     .join("\n");
 
-  const participantesDet = row.participantes_detalle ? `\nParticipantes (detalle): ${row.participantes_detalle}` : "";
+  const pd = row.participantes_detalle;
+  const participantesDetTxt =
+    pd && typeof pd === "object" ? (pd.texto ? String(pd.texto) : JSON.stringify(pd)) : pd ? String(pd) : "";
+
+  const participantesDet = participantesDetTxt ? `\nParticipantes (detalle): ${participantesDetTxt}` : "";
+
+  // Productos validados + evidencia (desde tabla producto)
+  const validados = await fetchProductosValidadosConEvidencia(bitActividadId);
+  const validadosTxt = validados.length
+    ? validados
+        .map((v) => {
+          const urlsTxt = (v.urls || []).length
+            ? (v.urls || []).map((u) => `  - ${u}`).join("\n")
+            : "  - (Sin link de evidencia)";
+          return `- ${v.producto}\n${urlsTxt}`;
+        })
+        .join("\n")
+    : "- —";
+
   const text = [
     `BITÁCORA DE ACTIVIDAD`,
     `Actividad: ${actLabel}`,
@@ -992,10 +1061,13 @@ async function copyBitacora(reporteId) {
     ``,
     `Contenido ejecutado:`,
     (row.contenido || "").trim(),
+    ``,
+    `Productos validados y evidencia (desde Productos de la actividad):`,
+    validadosTxt,
   ].join("\n");
 
   const ok = await copyTextToClipboard(text);
-  if (ok) setMsgBit("📋 Reporte copiado al portapapeles.", "success");
+  if (ok) setMsgBit("📋 Reporte copiado al portapapeles (incluye productos validados).", "success");
   else setMsgBit("No pude copiar al portapapeles en este navegador.", "warning");
 }
 

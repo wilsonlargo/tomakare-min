@@ -171,7 +171,7 @@ async function loadDepartamentos() {
 
   const { data, error } = await supabaseClient
     .from("departamentos")
-    .select("departamento, macroregion")
+    .select("id, departamento, macroregion")
     .order("departamento", { ascending: true });
 
   if (error) throw error;
@@ -182,7 +182,7 @@ async function loadDepartamentos() {
     (data || [])
       .map((d) => {
         const label = d.macroregion ? `${d.departamento} — ${d.macroregion}` : d.departamento;
-        return `<option value="${escapeHtml(d.departamento)}">${escapeHtml(label)}</option>`;
+        return `<option value="${escapeHtml(d.departamento)}" data-id="${escapeHtml(d.id ?? "")}">${escapeHtml(label)}</option>`;
       })
       .join("")
   );
@@ -199,7 +199,7 @@ async function loadMunicipiosByDepartamento(dep, selected = null) {
 
   const { data, error } = await supabaseClient
     .from("municipios")
-    .select("lugar")
+    .select("id, lugar, lat, lng, departamento_id, departamento")
     .eq("departamento", dep)
     .order("lugar", { ascending: true });
 
@@ -211,13 +211,211 @@ async function loadMunicipiosByDepartamento(dep, selected = null) {
       .map((m) => {
         const v = m.lugar;
         const isSel = selected && String(selected) === String(v);
-        return `<option value="${escapeHtml(v)}" ${isSel ? "selected" : ""}>${escapeHtml(v)}</option>`;
+        return `<option value="${escapeHtml(v)}" ${isSel ? "selected" : ""} data-id="${escapeHtml(m.id ?? "")}" data-lugar="${escapeHtml(v)}" data-lat="${escapeHtml(m.lat ?? "")}" data-lng="${escapeHtml(m.lng ?? "")}" data-dep-id="${escapeHtml(m.departamento_id ?? "")}">${escapeHtml(v)}</option>`;
       })
       .join("")
   );
 
   sel.disabled = false;
 }
+
+/* =========================
+   TERRITORIALIZACIÓN (MÚLTIPLE) — proyecto_territorios
+   - Se agrega en el formulario de Proyecto (no afecta Bitácora)
+   - Usa catálogo departamentos/municipios para autollenar lat/lng
+========================= */
+
+let territoriosDraft = [];
+
+function parseFloatSafe(v) {
+  const n = parseFloat(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function setMsgTerritorios(text, type = "muted") {
+  const el = document.getElementById("msgTerritorios");
+  if (!el) return;
+  const cls =
+    type === "danger" ? "text-danger" :
+    type === "warning" ? "text-warning" :
+    type === "success" ? "text-success" : "text-muted";
+  el.className = `small ${cls}`;
+  el.textContent = text || "";
+}
+
+function getSelectedDepartamentoMeta() {
+  const sel = document.getElementById("inpDepartamento");
+  const opt = sel?.selectedOptions?.[0];
+  return {
+    id: opt?.dataset?.id || "",
+    nombre: (sel?.value || opt?.textContent || "").split(" — ")[0].trim(),
+  };
+}
+
+function getSelectedMunicipioMeta() {
+  const sel = document.getElementById("inpMunicipio");
+  const opt = sel?.selectedOptions?.[0];
+  return {
+    id: opt?.dataset?.id || "",
+    lugar: (sel?.value || opt?.dataset?.lugar || opt?.textContent || "").trim(),
+    lat: opt?.dataset?.lat || "",
+    lng: opt?.dataset?.lng || "",
+  };
+}
+
+function syncTerritorioInputsFromMunicipio() {
+  const meta = getSelectedMunicipioMeta();
+  const inpLat = document.getElementById("inpTerrLat");
+  const inpLng = document.getElementById("inpTerrLng");
+  if (inpLat && meta.lat) inpLat.value = meta.lat;
+  if (inpLng && meta.lng) inpLng.value = meta.lng;
+}
+
+function renderTerritoriosRows() {
+  const tb = document.getElementById("tblTerritoriosRows");
+  const badge = document.getElementById("badgeTerritorios");
+  if (badge) badge.textContent = String((territoriosDraft || []).length);
+
+  if (!tb) return;
+
+  if (!Array.isArray(territoriosDraft) || territoriosDraft.length === 0) {
+    tb.innerHTML = `<tr><td colspan="6" class="text-muted">Sin territorios agregados.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = (territoriosDraft || []).map((t, i) => `
+    <tr>
+      <td class="text-nowrap">${escapeHtml(t.departamento_nombre || "")}</td>
+      <td class="text-nowrap">${escapeHtml(t.municipio_lugar || "")}</td>
+      <td>${escapeHtml(t.lugar_detalle || "")}</td>
+      <td class="text-nowrap">${escapeHtml(t.lat ?? "")}</td>
+      <td class="text-nowrap">${escapeHtml(t.lng ?? "")}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-danger" type="button" data-terr-del="${i}">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </td>
+    </tr>
+  `).join("");
+
+  tb.querySelectorAll("[data-terr-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.terrDel, 10);
+      territoriosDraft.splice(i, 1);
+      renderTerritoriosRows();
+    });
+  });
+}
+
+function addTerritorioDraftFromUI() {
+  const dep = getSelectedDepartamentoMeta();
+  const mun = getSelectedMunicipioMeta();
+
+  if (!dep.nombre) {
+    setMsgTerritorios("Selecciona un departamento para agregar territorio.", "warning");
+    return;
+  }
+  if (!mun.lugar) {
+    setMsgTerritorios("Selecciona un municipio para agregar territorio.", "warning");
+    return;
+  }
+
+  // evita duplicados por municipio (id si existe; si no, por texto)
+  const dup = (territoriosDraft || []).some(x =>
+    (mun.id && String(x.municipio_id) === String(mun.id)) ||
+    (!mun.id && String(x.municipio_lugar || "").toLowerCase() === String(mun.lugar).toLowerCase()
+              && String(x.departamento_nombre || "").toLowerCase() === String(dep.nombre).toLowerCase())
+  );
+  if (dup) {
+    setMsgTerritorios("Ese municipio ya está agregado en este proyecto.", "warning");
+    return;
+  }
+
+  const detalle = document.getElementById("inpTerrLugarDetalle")?.value?.trim() || null;
+
+  const lat = parseFloatSafe(document.getElementById("inpTerrLat")?.value);
+  const lng = parseFloatSafe(document.getElementById("inpTerrLng")?.value);
+
+  territoriosDraft.push({
+    departamento_id: dep.id || null,
+    municipio_id: mun.id || null,
+    departamento_nombre: dep.nombre || null,
+    municipio_lugar: mun.lugar || null,
+    lugar_detalle: detalle,
+    lat,
+    lng,
+    fuente_coord: (mun.lat && mun.lng) ? "catálogo municipios" : "manual",
+  });
+
+  // limpiar solo campos complementarios
+  const det = document.getElementById("inpTerrLugarDetalle");
+  if (det) det.value = "";
+  renderTerritoriosRows();
+  setMsgTerritorios("Territorio agregado.", "success");
+}
+
+async function loadTerritoriosProyecto() {
+  const tb = document.getElementById("tblTerritoriosRows");
+  if (tb) tb.innerHTML = `<tr><td colspan="6" class="text-muted">Cargando territorios…</td></tr>`;
+
+  const { data, error } = await supabaseClient
+    .from("proyecto_territorios")
+    .select("departamento_id, municipio_id, departamento_nombre, municipio_lugar, lugar_detalle, lat, lng, fuente_coord, created_at")
+    .eq("proyecto_id", proyectoId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("LOAD territorios error:", error);
+    territoriosDraft = [];
+    renderTerritoriosRows();
+    setMsgTerritorios("No pude cargar territorios (revisa RLS o tabla).", "warning");
+    return;
+  }
+
+  territoriosDraft = (data || []).map((r) => ({
+    departamento_id: r.departamento_id,
+    municipio_id: r.municipio_id,
+    departamento_nombre: r.departamento_nombre,
+    municipio_lugar: r.municipio_lugar,
+    lugar_detalle: r.lugar_detalle,
+    lat: r.lat,
+    lng: r.lng,
+    fuente_coord: r.fuente_coord,
+  }));
+
+  renderTerritoriosRows();
+  setMsgTerritorios("", "muted");
+}
+
+async function saveTerritoriosProyecto() {
+  if (!Array.isArray(territoriosDraft)) territoriosDraft = [];
+
+  // estrategia simple: borrar + insertar
+  const { error: delError } = await supabaseClient
+    .from("proyecto_territorios")
+    .delete()
+    .eq("proyecto_id", proyectoId);
+
+  if (delError) throw delError;
+
+  if (territoriosDraft.length === 0) return;
+
+  const rows = territoriosDraft.map((t) => ({
+    proyecto_id: proyectoId,
+    departamento_id: t.departamento_id || null,
+    municipio_id: t.municipio_id || null,
+    departamento_nombre: t.departamento_nombre || null,
+    municipio_lugar: t.municipio_lugar || null,
+    lugar_detalle: t.lugar_detalle || null,
+    lat: t.lat ?? null,
+    lng: t.lng ?? null,
+    fuente_coord: t.fuente_coord || "manual",
+  }));
+
+  const { error } = await supabaseClient.from("proyecto_territorios").insert(rows);
+  if (error) throw error;
+}
+
 
 async function loadProyecto() {
   const { data, error } = await supabaseClient
@@ -254,6 +452,16 @@ async function loadProyecto() {
   await loadDepartamentos();
   document.getElementById("inpDepartamento").value = data.departamento ?? "";
   await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
+
+// Territorialización múltiple (si existe en la página)
+try {
+  if (document.getElementById("btnAddTerritorio")) {
+    await loadTerritoriosProyecto();
+    try { syncTerritorioInputsFromMunicipio(); } catch (_) {}
+  }
+} catch (e) {
+  console.error("LOAD territorios error:", e);
+}
   pintarTotalesObjetivos(data.id)
 }
 
@@ -290,6 +498,19 @@ async function guardarCambios() {
 
     const { error } = await supabaseClient.from("proyecto").update(payload).eq("id", proyectoId);
     if (error) throw error;
+
+
+// Guardar territorialización múltiple (si hay UI en la página)
+try {
+  if (document.getElementById("btnAddTerritorio")) {
+    await saveTerritoriosProyecto();
+  }
+} catch (e) {
+  console.error("SAVE territorios error:", e);
+  setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
+  document.getElementById("lblProyecto").textContent = nombre;
+  return;
+}
 
     document.getElementById("lblProyecto").textContent = nombre;
     setMsg("✅ Cambios guardados.", "success");
@@ -1627,6 +1848,15 @@ async function init() {
       setMsg("No pude cargar municipios: " + (err.message || err), "danger");
     }
   });
+
+
+// Territorialización múltiple (UI opcional)
+if (document.getElementById("btnAddTerritorio")) {
+  document.getElementById("btnAddTerritorio")?.addEventListener("click", addTerritorioDraftFromUI);
+  document.getElementById("inpMunicipio")?.addEventListener("change", () => {
+    try { syncTerritorioInputsFromMunicipio(); } catch (e) { console.error(e); }
+  });
+}
 
   document.getElementById("btnLogout")?.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
