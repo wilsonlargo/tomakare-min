@@ -97,60 +97,6 @@
             </select>
           </div>
         </div>
-        <!-- ===== Territorialización múltiple (pegar debajo de los campos Departamento/Municipio/Lugar del proyecto) ===== -->
-<div class="mt-3 border rounded-3 p-3 bg-body">
-  <div class="d-flex justify-content-between align-items-center mb-2">
-    <div class="fw-semibold">
-      <i class="bi bi-geo-alt me-2"></i>Territorialización (múltiple)
-    </div>
-    <span class="badge text-bg-light border" id="badgeTerritorios">0</span>
-  </div>
-
-  <div class="row g-2 align-items-end">
-    <div class="col-md-6">
-      <label class="form-label small mb-1">Detalle del lugar (opcional)</label>
-      <input id="inpTerrLugarDetalle" class="form-control form-control-sm" placeholder="Resguardo, vereda, centro poblado, comunidad, etc.">
-    </div>
-
-    <div class="col-md-2">
-      <label class="form-label small mb-1">Lat</label>
-      <input id="inpTerrLat" class="form-control form-control-sm" type="number" step="any" placeholder="Ej: 4.1234">
-    </div>
-
-    <div class="col-md-2">
-      <label class="form-label small mb-1">Lng</label>
-      <input id="inpTerrLng" class="form-control form-control-sm" type="number" step="any" placeholder="Ej: -74.1234">
-    </div>
-
-    <div class="col-md-2 d-grid">
-      <button id="btnAddTerritorio" class="btn btn-sm btn-outline-primary" type="button">
-        <i class="bi bi-plus-lg me-1"></i>Agregar
-      </button>
-    </div>
-  </div>
-
-  <div class="table-responsive mt-3">
-    <table class="table table-sm align-middle">
-      <thead class="table-light">
-        <tr>
-          <th>Departamento</th>
-          <th>Municipio</th>
-          <th>Detalle</th>
-          <th class="text-nowrap">Lat</th>
-          <th class="text-nowrap">Lng</th>
-          <th class="text-end">Acción</th>
-        </tr>
-      </thead>
-      <tbody id="tblTerritoriosRows">
-        <tr><td colspan="6" class="text-muted">Sin territorios agregados.</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div id="msgTerritorios" class="small text-muted"></div>
-</div>
-
-
         <!--***************************-->
         <hr>
         <div class="row g-3">
@@ -534,6 +480,153 @@
   <script src="assets/js/supabaseClient.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/proyecto.js"></script>
+<!-- =========================
+     MODAL: Bitácora de Actividad
+========================= -->
+<div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lblModalBitacora">Bitácora</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div id="msgBitModal" class="alert alert-info" style="display:none;"></div>
+
+        <div class="row g-3">
+          <!-- Nuevo reporte -->
+          <div class="col-lg-6">
+            <div class="border rounded-3 p-3 bg-body">
+              <div class="fw-semibold mb-2"><i class="bi bi-plus-circle me-2"></i>Nuevo reporte</div>
+
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small mb-1">Fecha inicio (realización) *</label>
+                  <input id="bitFechaInicio" type="date" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small mb-1">Fecha fin (opcional)</label>
+                  <input id="bitFechaFin" type="date" class="form-control form-control-sm">
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small mb-1">Participantes (total) *</label>
+                  <input id="bitParticipantesTotal" type="number" min="0" class="form-control form-control-sm" placeholder="Ej: 35">
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label small mb-1">Participantes (detalle)</label>
+                  <input id="bitParticipantesDetalle" class="form-control form-control-sm" placeholder="Ej: Comunidad 25, Autoridades 5, Equipo 5">
+                </div>
+              </div>
+
+              <hr class="my-3">
+
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-semibold"><i class="bi bi-geo me-2"></i>Lugares *</div>
+                <span class="badge text-bg-light border" id="badgeBitLugares">0</span>
+              </div>
+
+              <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1">Departamento</label>
+                  <select id="bitDep" class="form-select form-select-sm">
+                    <option value="">Seleccione…</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1">Municipio</label>
+                  <select id="bitMun" class="form-select form-select-sm" disabled>
+                    <option value="">Seleccione…</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1">Detalle (opcional)</label>
+                  <input id="bitLugarDetalle" class="form-control form-control-sm" placeholder="Resguardo, vereda, sede…">
+                </div>
+                <div class="col-12 d-grid mt-1">
+                  <button id="btnBitAddLugar" class="btn btn-sm btn-outline-primary" type="button">
+                    <i class="bi bi-plus-lg me-1"></i>Agregar lugar
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Departamento</th>
+                      <th>Municipio</th>
+                      <th>Detalle</th>
+                      <th class="text-end">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bitLugaresRows">
+                    <tr><td colspan="4" class="text-muted">Agrega al menos un lugar.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <hr class="my-3">
+
+              <label class="form-label small mb-1">Contenido ejecutado (mínimo 300 caracteres) *</label>
+              <textarea id="bitContenido" class="form-control form-control-sm" rows="6"
+                placeholder="Describe qué se hizo, cómo se desarrolló y qué resultados observables dejó."></textarea>
+
+              <div class="d-grid mt-2">
+                <button id="btnGuardarBitacora" class="btn btn-sm btn-primary" type="button">
+                  <i class="bi bi-save2 me-1"></i>Guardar reporte
+                </button>
+              </div>
+
+              <div class="small text-muted mt-2">
+                Requisitos mínimos: fecha, participantes, al menos un lugar y contenido robusto.
+              </div>
+            </div>
+          </div>
+
+          <!-- Historial + productos -->
+          <div class="col-lg-6">
+            <div class="border rounded-3 p-3 bg-body mb-3">
+              <div class="fw-semibold mb-2"><i class="bi bi-clock-history me-2"></i>Historial</div>
+              <div id="bitHistorial"></div>
+            </div>
+
+            <div class="border rounded-3 p-3 bg-body">
+              <div class="fw-semibold mb-2"><i class="bi bi-archive me-2"></i>Productos y evidencias (automático)</div>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Producto</th>
+                      <th>Estado</th>
+                      <th>Revisión</th>
+                      <th class="text-end">Evidencia</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bitProdRows">
+                    <tr><td colspan="4" class="text-muted">Cargando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="small text-muted mt-2">
+                Esta sección se alimenta desde la tabla <code>producto</code> por <code>actividad_id</code>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i>Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 
 </html>

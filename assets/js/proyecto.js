@@ -163,17 +163,6 @@ function renderMVRows() {
 /* =========================
    PROYECTO / DEP / MUN
 ========================= */
-/* =========================
-   PROYECTO / DEP / MUN (Catálogos + Territorialización múltiple)
-========================= */
-
-// caches catálogos
-let cacheDepartamentosCatalogo = [];
-let cacheMunicipiosCatalogo = [];
-
-// draft de territorios (proyecto_territorios)
-let territoriosDraft = [];
-
 async function loadDepartamentos() {
   const sel = document.getElementById("inpDepartamento");
   if (!sel) return;
@@ -182,243 +171,52 @@ async function loadDepartamentos() {
 
   const { data, error } = await supabaseClient
     .from("departamentos")
-    .select("id, departamento, macroregion")
+    .select("departamento, macroregion")
     .order("departamento", { ascending: true });
 
   if (error) throw error;
 
-  cacheDepartamentosCatalogo = data || [];
-
   sel.innerHTML = `<option value="">Seleccione…</option>`;
   sel.insertAdjacentHTML(
     "beforeend",
-    (cacheDepartamentosCatalogo || [])
+    (data || [])
       .map((d) => {
         const label = d.macroregion ? `${d.departamento} — ${d.macroregion}` : d.departamento;
-        return `<option value="${escapeHtml(d.id)}" data-dep="${escapeHtml(d.departamento)}">${escapeHtml(label)}</option>`;
+        return `<option value="${escapeHtml(d.departamento)}">${escapeHtml(label)}</option>`;
       })
       .join("")
   );
 }
 
-function getSelectedDepartamentoMeta() {
-  const sel = document.getElementById("inpDepartamento");
-  const opt = sel?.selectedOptions?.[0];
-  return {
-    id: sel?.value || "",
-    nombre: opt?.dataset?.dep || "",
-  };
-}
-
-function getSelectedMunicipioMeta() {
-  const sel = document.getElementById("inpMunicipio");
-  const opt = sel?.selectedOptions?.[0];
-  return {
-    id: sel?.value || "",
-    lugar: opt?.dataset?.lugar || "",
-    lat: opt?.dataset?.lat || "",
-    lng: opt?.dataset?.lng || "",
-  };
-}
-
-async function loadMunicipiosByDepartamento(departamentoId, selected = null) {
+async function loadMunicipiosByDepartamento(dep, selected = null) {
   const sel = document.getElementById("inpMunicipio");
   if (!sel) return;
 
   sel.innerHTML = `<option value="">Seleccione…</option>`;
   sel.disabled = true;
-  cacheMunicipiosCatalogo = [];
 
-  if (!departamentoId) return;
+  if (!dep) return;
 
   const { data, error } = await supabaseClient
     .from("municipios")
-    .select("id, lugar, lat, lng, departamento_id")
-    .eq("departamento_id", departamentoId)
+    .select("lugar")
+    .eq("departamento", dep)
     .order("lugar", { ascending: true });
 
   if (error) throw error;
 
-  cacheMunicipiosCatalogo = data || [];
-
   sel.insertAdjacentHTML(
     "beforeend",
-    (cacheMunicipiosCatalogo || [])
+    (data || [])
       .map((m) => {
-        const isSel =
-          selected &&
-          (String(selected) === String(m.id) || String(selected).toLowerCase() === String(m.lugar).toLowerCase());
-        return `<option
-                  value="${escapeHtml(m.id)}"
-                  data-lugar="${escapeHtml(m.lugar)}"
-                  data-lat="${escapeHtml(m.lat ?? "")}"
-                  data-lng="${escapeHtml(m.lng ?? "")}"
-                  ${isSel ? "selected" : ""}>${escapeHtml(m.lugar)}</option>`;
+        const v = m.lugar;
+        const isSel = selected && String(selected) === String(v);
+        return `<option value="${escapeHtml(v)}" ${isSel ? "selected" : ""}>${escapeHtml(v)}</option>`;
       })
       .join("")
   );
 
   sel.disabled = false;
-
-  // sincroniza lat/lng si existe el bloque de territorios
-  syncTerritorioInputsFromMunicipio();
-}
-
-/* ---------- Territorialización múltiple (UI + Supabase) ---------- */
-
-function syncTerritorioInputsFromMunicipio() {
-  const meta = getSelectedMunicipioMeta();
-  const inpLat = document.getElementById("inpTerrLat");
-  const inpLng = document.getElementById("inpTerrLng");
-  if (inpLat) inpLat.value = meta.lat || "";
-  if (inpLng) inpLng.value = meta.lng || "";
-}
-
-function parseFloatSafe(v) {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
-
-function renderTerritoriosRows() {
-  const tb = document.getElementById("tblTerritoriosRows");
-  const badge = document.getElementById("badgeTerritorios");
-  const msg = document.getElementById("msgTerritorios");
-
-  if (badge) badge.textContent = String((territoriosDraft || []).length);
-
-  if (!tb) return; // si aún no pegaste el bloque HTML, no revienta
-
-  if (!Array.isArray(territoriosDraft) || territoriosDraft.length === 0) {
-    tb.innerHTML = `<tr><td colspan="6" class="text-muted">Sin territorios agregados.</td></tr>`;
-    if (msg) msg.textContent = "";
-    return;
-  }
-
-  tb.innerHTML = territoriosDraft
-    .map((t, i) => {
-      return `
-        <tr>
-          <td class="text-nowrap">${escapeHtml(t.departamento_nombre || "")}</td>
-          <td class="text-nowrap">${escapeHtml(t.municipio_lugar || "")}</td>
-          <td>${escapeHtml(t.lugar_detalle || "")}</td>
-          <td class="text-nowrap">${escapeHtml(t.lat ?? "")}</td>
-          <td class="text-nowrap">${escapeHtml(t.lng ?? "")}</td>
-          <td class="text-end">
-            <button class="btn btn-sm btn-outline-danger" type="button" data-ter-del="${i}">
-              <i class="bi bi-x-lg"></i>
-            </button>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  tb.querySelectorAll("[data-ter-del]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const i = parseInt(btn.dataset.terDel, 10);
-      territoriosDraft.splice(i, 1);
-      renderTerritoriosRows();
-    });
-  });
-
-  if (msg) msg.textContent = "Se guarda en proyecto_territorios al oprimir “Guardar cambios”.";
-}
-
-function addTerritorioDraftFromUI() {
-  const dep = getSelectedDepartamentoMeta();
-  const mun = getSelectedMunicipioMeta();
-
-  if (!dep.id) {
-    setMsg("Selecciona un departamento para agregar territorio.", "warning");
-    return;
-  }
-  if (!mun.id) {
-    setMsg("Selecciona un municipio para agregar territorio.", "warning");
-    return;
-  }
-
-  // evitar duplicados por municipio
-  if ((territoriosDraft || []).some((x) => String(x.municipio_id) === String(mun.id))) {
-    setMsg("Ese municipio ya está agregado en este proyecto.", "warning");
-    return;
-  }
-
-  const detalle = document.getElementById("inpTerrLugarDetalle")?.value?.trim() || null;
-  const lat = parseFloatSafe(document.getElementById("inpTerrLat")?.value);
-  const lng = parseFloatSafe(document.getElementById("inpTerrLng")?.value);
-
-  territoriosDraft.push({
-    departamento_id: dep.id,
-    municipio_id: mun.id,
-    departamento_nombre: dep.nombre || null,
-    municipio_lugar: mun.lugar || null,
-    lugar_detalle: detalle,
-    lat,
-    lng,
-    fuente_coord: "catálogo municipios",
-  });
-
-  renderTerritoriosRows();
-}
-
-async function loadTerritoriosProyecto() {
-  const tb = document.getElementById("tblTerritoriosRows");
-  if (tb) tb.innerHTML = `<tr><td colspan="6" class="text-muted">Cargando territorios…</td></tr>`;
-
-  const { data, error } = await supabaseClient
-    .from("proyecto_territorios")
-    .select("departamento_id, municipio_id, departamento_nombre, municipio_lugar, lugar_detalle, lat, lng, fuente_coord, created_at")
-    .eq("proyecto_id", proyectoId)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("LOAD territorios error:", error);
-    territoriosDraft = [];
-    renderTerritoriosRows();
-    return;
-  }
-
-  territoriosDraft = (data || []).map((r) => ({
-    departamento_id: r.departamento_id,
-    municipio_id: r.municipio_id,
-    departamento_nombre: r.departamento_nombre,
-    municipio_lugar: r.municipio_lugar,
-    lugar_detalle: r.lugar_detalle,
-    lat: r.lat,
-    lng: r.lng,
-    fuente_coord: r.fuente_coord,
-  }));
-
-  renderTerritoriosRows();
-}
-
-async function saveTerritoriosProyecto() {
-  if (!Array.isArray(territoriosDraft)) territoriosDraft = [];
-
-  // Estrategia simple y estable: borrar + insertar
-  const { error: delError } = await supabaseClient
-    .from("proyecto_territorios")
-    .delete()
-    .eq("proyecto_id", proyectoId);
-
-  if (delError) throw delError;
-
-  if (territoriosDraft.length === 0) return;
-
-  const rows = territoriosDraft.map((t) => ({
-    proyecto_id: proyectoId,
-    departamento_id: t.departamento_id || null,
-    municipio_id: t.municipio_id,
-    departamento_nombre: t.departamento_nombre || null,
-    municipio_lugar: t.municipio_lugar || null,
-    lugar_detalle: t.lugar_detalle || null,
-    lat: t.lat ?? null,
-    lng: t.lng ?? null,
-    fuente_coord: t.fuente_coord || "catálogo municipios",
-  }));
-
-  const { error } = await supabaseClient.from("proyecto_territorios").insert(rows);
-  if (error) throw error;
 }
 
 async function loadProyecto() {
@@ -454,26 +252,8 @@ async function loadProyecto() {
   setVal("inpNombrePoblacion", data.nombre_poblacion);
 
   await loadDepartamentos();
-
-  // Mapear proyecto.departamento (texto) -> departamentos.id (uuid)
-  const depTxt = (data.departamento ?? "").trim();
-  const depRow = (cacheDepartamentosCatalogo || []).find(d => String(d.departamento || "").trim().toLowerCase() === depTxt.toLowerCase());
-  const depId = depRow?.id || "";
-
-  document.getElementById("inpDepartamento").value = depId;
-
-  await loadMunicipiosByDepartamento(depId, null);
-
-  // Mapear proyecto.municipio (texto) -> municipios.id (bigint) por lugar
-  const munTxt = (data.municipio ?? "").trim();
-  const munRow = (cacheMunicipiosCatalogo || []).find(m => String(m.lugar || "").trim().toLowerCase() === munTxt.toLowerCase());
-  if (munRow) {
-    document.getElementById("inpMunicipio").value = String(munRow.id);
-  }
-
-  syncTerritorioInputsFromMunicipio();
-  await loadTerritoriosProyecto();
-
+  document.getElementById("inpDepartamento").value = data.departamento ?? "";
+  await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
   pintarTotalesObjetivos(data.id)
 }
 
@@ -509,20 +289,10 @@ async function guardarCambios() {
     };
 
     const { error } = await supabaseClient.from("proyecto").update(payload).eq("id", proyectoId);
-if (error) throw error;
+    if (error) throw error;
 
-// Guardar territorialización múltiple (si el usuario agregó territorios)
-try {
-  await saveTerritoriosProyecto();
-} catch (e) {
-  console.error("SAVE territorios error:", e);
-  setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
-  document.getElementById("lblProyecto").textContent = nombre;
-  return;
-}
-
-document.getElementById("lblProyecto").textContent = nombre;
-setMsg("✅ Cambios guardados.", "success");
+    document.getElementById("lblProyecto").textContent = nombre;
+    setMsg("✅ Cambios guardados.", "success");
   } catch (e) {
     console.error("UPDATE ERROR:", e);
     setMsg("❌ " + (e.message || e), "danger");
@@ -858,6 +628,9 @@ function renderActividadesList() {
           <span class="badge bg-primary text-white border mt-1" id="badgeActAv${a.id}">%0</span>
         </div>
         <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-secondary" data-act-bit="${a.id}" type="button" title="Bitácora">
+            <i class="bi bi-journal-text"></i>
+          </button>
           <button class="btn btn-sm btn-outline-primary" data-act-edit="${a.id}" type="button" title="Editar">
             <i class="bi bi-pencil-fill"></i>
           </button>
@@ -897,10 +670,633 @@ function renderActividadesList() {
       e.stopPropagation();
       deleteActividad(btn.dataset.actDel);
     });
+  });box.querySelectorAll("[data-act-bit]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openModalBitacora(btn.dataset.actBit);
+    });
   });
 
   syncActionButtons();
 }
+
+/* =========================
+   BITÁCORA DE ACTIVIDAD (Reporte cualitativo acumulativo)
+   Tabla: actividad_bitacora
+   - lugares: jsonb array (sin lat/lng)
+   - productos/evidencias: se leen de 'producto' por actividad_id
+========================= */
+
+let bitActividadId = null;
+let bitLugaresDraft = [];
+let bitEditId = null;
+let bitCacheById = new Map();
+
+function setMsgBit(text, type = "info") {
+  setMsgModal("msgBitModal", text, type);
+}
+function clearMsgBit() {
+  hideMsgModal("msgBitModal");
+}
+
+function getActividadLabelById(id) {
+  const a = (cacheActividades || []).find((x) => x.id === id);
+  if (!a) return "Actividad";
+  const label = `${a.codigo ? a.codigo + " — " : ""}${a.nombre || ""}`;
+  return label;
+}
+
+async function loadDepartamentosBit() {
+  const sel = document.getElementById("bitDep");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Cargando…</option>`;
+
+  const { data, error } = await supabaseClient
+    .from("departamentos")
+    .select("departamento, macroregion")
+    .order("departamento", { ascending: true });
+
+  if (error) throw error;
+
+  sel.innerHTML = `<option value="">Seleccione…</option>`;
+  sel.insertAdjacentHTML(
+    "beforeend",
+    (data || [])
+      .map((d) => {
+        const label = d.macroregion ? `${d.departamento} — ${d.macroregion}` : d.departamento;
+        return `<option value="${escapeHtml(d.departamento)}">${escapeHtml(label)}</option>`;
+      })
+      .join("")
+  );
+}
+
+async function loadMunicipiosBitByDepartamento(depTxt) {
+  const sel = document.getElementById("bitMun");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Seleccione…</option>`;
+  sel.disabled = true;
+
+  if (!depTxt) return;
+
+  const norm = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // quita tildes
+      .replace(/[^a-z0-9\s]/g, " ") // quita puntuación
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const depNorm = norm(depTxt);
+
+  let rows = [];
+
+  // 1) intento exacto
+  {
+    const { data, error } = await supabaseClient
+      .from("municipios")
+      .select("lugar, departamento")
+      .eq("departamento", depTxt)
+      .order("lugar", { ascending: true });
+
+    if (error) throw error;
+    rows = data || [];
+  }
+
+  // 2) fallback con ilike (por variaciones de mayúsculas/puntuación)
+  if (!rows.length) {
+    const { data, error } = await supabaseClient
+      .from("municipios")
+      .select("lugar, departamento")
+      .ilike("departamento", `%${depTxt}%`)
+      .order("lugar", { ascending: true });
+
+    if (error) throw error;
+    rows = data || [];
+  }
+
+  // 3) fallback final: trae y filtra en cliente por normalización (más tolerante)
+  if (!rows.length) {
+    const { data, error } = await supabaseClient
+      .from("municipios")
+      .select("lugar, departamento")
+      .limit(5000);
+
+    if (error) throw error;
+
+    rows = (data || [])
+      .filter((r) => norm(r.departamento) === depNorm)
+      .sort((a, b) => String(a.lugar || "").localeCompare(String(b.lugar || ""), "es"));
+  }
+
+  if (!rows.length) {
+    sel.innerHTML = `<option value="">(Sin municipios)</option>`;
+    sel.disabled = true;
+    setMsgBit(`No encontré municipios para "${depTxt}". Revisa el catálogo municipios.departamento.`, "warning");
+    return;
+  }
+
+  sel.insertAdjacentHTML(
+    "beforeend",
+    rows.map((m) => `<option value="${escapeHtml(m.lugar)}">${escapeHtml(m.lugar)}</option>`).join("")
+  );
+
+  sel.disabled = false;
+}
+
+function renderBitLugaresRows() {
+  const tb = document.getElementById("bitLugaresRows");
+  const badge = document.getElementById("badgeBitLugares");
+  if (badge) badge.textContent = String((bitLugaresDraft || []).length);
+
+  if (!tb) return;
+
+  if (!Array.isArray(bitLugaresDraft) || bitLugaresDraft.length === 0) {
+    tb.innerHTML = `<tr><td colspan="4" class="text-muted">Agrega al menos un lugar.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = bitLugaresDraft
+    .map(
+      (l, i) => `
+      <tr>
+        <td class="text-nowrap">${escapeHtml(l.departamento || "")}</td>
+        <td class="text-nowrap">${escapeHtml(l.municipio || "")}</td>
+        <td>${escapeHtml(l.detalle || "")}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-danger" type="button" data-bit-del="${i}">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </td>
+      </tr>
+    `
+    )
+    .join("");
+
+  tb.querySelectorAll("[data-bit-del]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.bitDel, 10);
+      bitLugaresDraft.splice(i, 1);
+      renderBitLugaresRows();
+    });
+  });
+}
+
+function addBitLugarFromUI() {
+  const dep = document.getElementById("bitDep")?.value || "";
+  const mun = document.getElementById("bitMun")?.value || "";
+  const detalle = document.getElementById("bitLugarDetalle")?.value?.trim() || "";
+
+  if (!dep) return setMsgBit("Selecciona un departamento.", "warning");
+  if (!mun) return setMsgBit("Selecciona un municipio.", "warning");
+
+  const key = `${dep}::${mun}::${detalle}`.toLowerCase();
+  const exists = (bitLugaresDraft || []).some(
+    (x) => `${x.departamento}::${x.municipio}::${x.detalle || ""}`.toLowerCase() === key
+  );
+  if (exists) return setMsgBit("Ese lugar ya está agregado.", "warning");
+
+  bitLugaresDraft.push({ departamento: dep, municipio: mun, detalle });
+
+  const det = document.getElementById("bitLugarDetalle");
+  if (det) det.value = "";
+  renderBitLugaresRows();
+  clearMsgBit();
+}
+
+function resetBitForm() {
+  clearMsgBit();
+  bitEditId = null;
+
+  const btn = document.getElementById("btnGuardarBitacora");
+  if (btn) {
+    btn.innerHTML = `<i class="bi bi-save2 me-1"></i>Guardar reporte`;
+    btn.dataset.editId = "";
+  }
+
+  bitLugaresDraft = [];
+  renderBitLugaresRows();
+
+  const set = (id, v = "") => {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  };
+  set("bitFechaInicio", "");
+  set("bitFechaFin", "");
+  set("bitParticipantesTotal", "");
+  set("bitParticipantesDetalle", "");
+  set("bitContenido", "");
+  set("bitDep", "");
+
+  const mun = document.getElementById("bitMun");
+  if (mun) {
+    mun.innerHTML = `<option value="">Seleccione…</option>`;
+    mun.disabled = true;
+  }
+}
+
+function validateBitForm() {
+  const fi = document.getElementById("bitFechaInicio")?.value || "";
+  const pt = parseInt(document.getElementById("bitParticipantesTotal")?.value, 10) || 0;
+  const contenido = (document.getElementById("bitContenido")?.value || "").trim();
+
+  if (!fi) return "La fecha de realización (inicio) es obligatoria.";
+  if (pt <= 0) return "El total de participantes debe ser mayor a 0.";
+  if (!Array.isArray(bitLugaresDraft) || bitLugaresDraft.length === 0) return "Agrega al menos un lugar.";
+  if (contenido.length < 200) return "El contenido es muy corto. Mínimo 300 caracteres.";
+  return null;
+}
+
+function scrollModalBitacoraTop() {
+  const modalBody = document.querySelector("#modalBitacora .modal-body");
+  if (modalBody) modalBody.scrollTop = 0;
+}
+
+function fillBitFormFromRow(row) {
+  document.getElementById("bitFechaInicio").value = row.fecha_inicio || "";
+  document.getElementById("bitFechaFin").value = row.fecha_fin || "";
+  document.getElementById("bitParticipantesTotal").value = row.participantes_total ?? "";
+  document.getElementById("bitParticipantesDetalle").value = row.participantes_detalle ?? "";
+  document.getElementById("bitContenido").value = row.contenido || "";
+
+  bitLugaresDraft = Array.isArray(row.lugares) ? row.lugares : [];
+  renderBitLugaresRows();
+
+  const btn = document.getElementById("btnGuardarBitacora");
+  if (btn) btn.innerHTML = `<i class="bi bi-check2-circle me-1"></i>Actualizar reporte`;
+
+  setMsgBit("✏️ Editando reporte. Puedes modificar y actualizar. (Si quieres crear uno nuevo, limpia el formulario o cierra el modal).", "info");
+  scrollModalBitacoraTop();
+}
+
+function startEditBitacora(reporteId) {
+  const row = bitCacheById.get(reporteId);
+  if (!row) return setMsgBit("No encontré ese reporte para editar.", "warning");
+
+  bitEditId = reporteId;
+  fillBitFormFromRow(row);
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {
+    // fallback below
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "readonly");
+    ta.style.position = "absolute";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function copyBitacora(reporteId) {
+  const row = bitCacheById.get(reporteId);
+  if (!row) return setMsgBit("No encontré ese reporte para copiar.", "warning");
+
+  const actLabel = getActividadLabelById(bitActividadId);
+  const fi = row.fecha_inicio || "";
+  const ff = row.fecha_fin || "";
+  const fecha = ff && ff !== fi ? `${fi} → ${ff}` : fi;
+
+  const lugares = Array.isArray(row.lugares) ? row.lugares : [];
+  const lugaresTxt = lugares
+    .map((l) => `${l.departamento || ""} — ${l.municipio || ""}${l.detalle ? " — " + l.detalle : ""}`.replace(/^ — /, "").trim())
+    .filter(Boolean)
+    .map((x) => `- ${x}`)
+    .join("\n");
+
+  const participantesDet = row.participantes_detalle ? `\nParticipantes (detalle): ${row.participantes_detalle}` : "";
+  const text = [
+    `BITÁCORA DE ACTIVIDAD`,
+    `Actividad: ${actLabel}`,
+    `Fecha: ${fecha || "—"}`,
+    `Participantes: ${row.participantes_total ?? "—"}${participantesDet}`,
+    ``,
+    `Lugares:`,
+    lugaresTxt || "- —",
+    ``,
+    `Contenido ejecutado:`,
+    (row.contenido || "").trim(),
+  ].join("\n");
+
+  const ok = await copyTextToClipboard(text);
+  if (ok) setMsgBit("📋 Reporte copiado al portapapeles.", "success");
+  else setMsgBit("No pude copiar al portapapeles en este navegador.", "warning");
+}
+
+async function loadBitacoraHistorial(actividadId) {
+  const box = document.getElementById("bitHistorial");
+  if (box) box.innerHTML = `<div class="text-muted small">Cargando historial…</div>`;
+
+  const { data, error } = await supabaseClient
+    .from("actividad_bitacora")
+    .select("id, fecha_inicio, fecha_fin, lugares, participantes_total, participantes_detalle, contenido, created_at")
+    .eq("actividad_id", actividadId)
+    .order("fecha_inicio", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("BIT LOAD ERROR:", error);
+    if (box) box.innerHTML = `<div class="text-danger small">Error cargando bitácora.</div>`;
+    return;
+  }
+
+  const rows = data || [];
+
+  // cache rápido por id (para editar/copiar)
+  bitCacheById = new Map(rows.map(r => [r.id, r]));
+  if (!rows.length) {
+    if (box) box.innerHTML = `<div class="text-muted small">Aún no hay reportes para esta actividad.</div>`;
+    return;
+  }
+
+  if (!box) return;
+
+  box.innerHTML = rows
+    .map((r) => {
+      const fi = r.fecha_inicio || "";
+      const ff = r.fecha_fin || "";
+      const fecha = ff && ff !== fi ? `${fi} → ${ff}` : fi;
+
+      const lugares = Array.isArray(r.lugares) ? r.lugares : [];
+      const lugaresTxt = lugares
+        .slice(0, 2)
+        .map((l) => `${l.municipio}${l.departamento ? " (" + l.departamento + ")" : ""}`)
+        .join(", ");
+      const more = lugares.length > 2 ? ` +${lugares.length - 2} más` : "";
+
+      const prev = String(r.contenido || "").trim();
+      const preview = prev.length > 180 ? prev.slice(0, 180) + "…" : prev;
+
+      return `
+        <div class="border rounded-3 p-2 mb-2 bg-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-semibold">${escapeHtml(fecha || "—")}</div>
+              <div class="small text-muted">Participantes: ${escapeHtml(r.participantes_total ?? "")} · Lugares: ${escapeHtml(String(lugares.length))}</div>
+              <div class="small text-muted">${escapeHtml(lugaresTxt)}${escapeHtml(more)}</div>
+            </div>
+            <div class="btn-group" role="group">
+  <button class="btn btn-sm btn-outline-secondary" type="button" data-bit-view="${r.id}" title="Ver">
+    <i class="bi bi-eye"></i>
+  </button>
+  <button class="btn btn-sm btn-outline-secondary" type="button" data-bit-edit="${r.id}" title="Editar">
+    <i class="bi bi-pencil"></i>
+  </button>
+  <button class="btn btn-sm btn-outline-secondary" type="button" data-bit-copy="${r.id}" title="Copiar">
+    <i class="bi bi-clipboard"></i>
+  </button>
+</div>
+          </div>
+          <div class="small mt-2">${escapeHtml(preview)}</div>
+
+          <div class="collapse mt-2" id="bitView${r.id}">
+            <div class="small">
+              <div class="fw-semibold mb-1">Detalle</div>
+              <div class="mb-2"><span class="text-muted">Contenido:</span><br>${escapeHtml(r.contenido || "")}</div>
+
+              <div class="mb-2"><span class="text-muted">Lugares:</span>
+                <ul class="mb-0">
+                  ${(lugares || [])
+                    .map(
+                      (l) =>
+                        `<li>${escapeHtml(
+                          (l.departamento || "") +
+                            " — " +
+                            (l.municipio || "") +
+                            (l.detalle ? " — " + l.detalle : "")
+                        )}</li>`
+                    )
+                    .join("")}
+                </ul>
+              </div>
+
+              <div class="mb-0"><span class="text-muted">Participantes (detalle):</span><br>${escapeHtml(
+                typeof r.participantes_detalle === "string"
+                  ? r.participantes_detalle
+                  : JSON.stringify(r.participantes_detalle || {})
+              )}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  box.querySelectorAll("[data-bit-view]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.bitView;
+      const el = document.getElementById("bitView" + id);
+      if (!el) return;
+      new bootstrap.Collapse(el, { toggle: true });
+    });
+  });
+
+  box.querySelectorAll("[data-bit-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => startEditBitacora(btn.dataset.bitEdit));
+  });
+
+  box.querySelectorAll("[data-bit-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => copyBitacora(btn.dataset.bitCopy));
+  });
+}
+
+async function loadProductosEvidenciasBitacora(actividadId) {
+  const tb = document.getElementById("bitProdRows");
+  if (!tb) return;
+
+  tb.innerHTML = `<tr><td colspan="4" class="text-muted">Cargando productos…</td></tr>`;
+
+  const { data, error } = await supabaseClient
+    .from("producto")
+    .select("id, descripcion, estado, medios_verificacion, revisiones, orden, created_at")
+    .eq("actividad_id", actividadId)
+    .order("orden", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("BIT PROD ERROR:", error);
+    tb.innerHTML = `<tr><td colspan="4" class="text-danger">Error cargando productos.</td></tr>`;
+    return;
+  }
+
+  const rows = data || [];
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="4" class="text-muted">No hay productos asociados a esta actividad.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = rows
+    .map((p) => {
+      const ev =
+        Array.isArray(p.medios_verificacion) && p.medios_verificacion.length
+          ? p.medios_verificacion[0].url || ""
+          : "";
+      const btn = ev
+        ? `<button class="btn btn-sm btn-outline-secondary" type="button" data-bit-open="${escapeHtml(
+            ev
+          )}" title="Ver evidencia">
+             <i class="bi bi-box-arrow-up-right"></i>
+           </button>`
+        : `<span class="badge text-bg-warning">Sin evidencia</span>`;
+
+      return `
+        <tr>
+          <td>${escapeHtml(p.descripcion || "")}</td>
+          <td class="text-nowrap">${escapeHtml(p.estado || "Pendiente")}</td>
+          <td class="text-nowrap">${escapeHtml(p.revisiones || "")}</td>
+          <td class="text-end">${btn}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  tb.querySelectorAll("[data-bit-open]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = btn.dataset.bitOpen || "";
+      if (!url) return;
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+  });
+}
+
+async function saveBitacoraEntry() {
+  try {
+    clearMsgBit();
+    if (!bitActividadId) return;
+
+    const err = validateBitForm();
+    if (err) return setMsgBit(err, "warning");
+
+    const fi = document.getElementById("bitFechaInicio").value;
+    const ff = document.getElementById("bitFechaFin").value || null;
+
+    const participantes_total = parseInt(document.getElementById("bitParticipantesTotal").value, 10) || 0;
+    const participantes_detalle = (document.getElementById("bitParticipantesDetalle").value || "").trim() || null;
+
+    const contenido = document.getElementById("bitContenido").value.trim();
+
+    const payload = {
+      actividad_id: bitActividadId,
+      fecha_inicio: fi,
+      fecha_fin: ff,
+      lugares: bitLugaresDraft,
+      participantes_total,
+      participantes_detalle,
+      contenido,
+    };
+
+    const btn = document.getElementById("btnGuardarBitacora");
+const editId = bitEditId || (btn?.dataset?.editId ? String(btn.dataset.editId) : null);
+
+if (editId) {
+  const { data, error } = await supabaseClient
+    .from("actividad_bitacora")
+    .update(payload)
+    .eq("id", editId)
+    .select("id");
+
+  if (error) throw error;
+
+  // Si RLS bloquea el update, a veces no da error y simplemente retorna 0 filas.
+  if (!data || data.length === 0) {
+    return setMsgBit(
+      "No se pudo actualizar (0 filas). Si tienes RLS activo, agrega una policy UPDATE para actividad_bitacora.",
+      "warning"
+    );
+  }
+
+  setMsgBit("✅ Reporte actualizado.", "success");
+} else {
+  const { error } = await supabaseClient.from("actividad_bitacora").insert([payload]);
+  if (error) throw error;
+  setMsgBit("✅ Reporte guardado en la bitácora.", "success");
+}
+    resetBitForm();
+    await loadBitacoraHistorial(bitActividadId);
+  } catch (e) {
+    console.error("BIT SAVE ERROR:", e);
+    setMsgBit("❌ " + (e.message || e), "danger");
+  }
+}
+
+async function openModalBitacora(actividadId) {
+  bitActividadId = actividadId;
+
+  const title = document.getElementById("lblModalBitacora");
+  if (title) title.textContent = "Bitácora — " + getActividadLabelById(actividadId);
+
+  // Bind de eventos (reemplaza handlers anteriores si existían)
+  const depSel = document.getElementById("bitDep");
+  const munSel = document.getElementById("bitMun");
+  const btnAddLugar = document.getElementById("btnBitAddLugar");
+  const btnSave = document.getElementById("btnGuardarBitacora");
+
+  if (depSel) {
+    depSel.onchange = async () => {
+      try {
+        clearMsgBit();
+        await loadMunicipiosBitByDepartamento(depSel.value);
+      } catch (e) {
+        console.error("BIT MUN ERROR:", e);
+        setMsgBit("No pude cargar municipios: " + (e.message || e), "danger");
+        if (munSel) {
+          munSel.innerHTML = `<option value="">(Error)</option>`;
+          munSel.disabled = true;
+        }
+      }
+    };
+  }
+
+  if (btnAddLugar) {
+    btnAddLugar.onclick = (e) => {
+      e.preventDefault();
+      addBitLugarFromUI();
+    };
+  }
+
+  if (btnSave) {
+    btnSave.onclick = (e) => {
+      e.preventDefault();
+      saveBitacoraEntry();
+    };
+  }
+
+  resetBitForm();
+
+  try {
+    await loadDepartamentosBit();
+  } catch (e) {
+    console.error("BIT DEP ERROR:", e);
+    setMsgBit("No pude cargar departamentos: " + (e.message || e), "danger");
+  }
+
+  await loadBitacoraHistorial(actividadId);
+  await loadProductosEvidenciasBitacora(actividadId);
+
+  new bootstrap.Modal(document.getElementById("modalBitacora")).show();
+}
+
+// para evitar que vuelva el ReferenceError por alcance/orden de carga
+window.openModalBitacora = openModalBitacora;
+
+// asegurar disponibilidad global (evita ReferenceError si el listener está en otro scope)
+window.openModalBitacora = openModalBitacora;
 
 /* =========================
    PRODUCTOS (CRUD + LISTA)
@@ -1159,18 +1555,6 @@ async function init() {
       setMsg("No pude cargar municipios: " + (err.message || err), "danger");
     }
   });
-
-  // al cambiar municipio, autollenar lat/lng del bloque de territorios (si existe)
-  document.getElementById("inpMunicipio")?.addEventListener("change", () => {
-    syncTerritorioInputsFromMunicipio();
-  });
-
-  // botón Agregar territorio (Territorialización múltiple)
-  document.getElementById("btnAddTerritorio")?.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    addTerritorioDraftFromUI();
-  });
-
 
   document.getElementById("btnLogout")?.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
