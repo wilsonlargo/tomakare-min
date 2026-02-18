@@ -135,8 +135,7 @@
                                 </thead>
                                 <tbody id="tblContratos">
                                     <tr>
-                                        <td colspan="7" class="text-muted p-3">Selecciona un grupo para ver contratos.
-                                        </td>
+                                        <td colspan="7" class="text-muted p-3">Selecciona un grupo para ver contratos.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -240,23 +239,23 @@
                         </div>
                     </div>
                     <div class="row g-2 mt-1">
-                        <div class="col-md-6">
-                            <label class="form-label">Tipo de población</label>
-                            <select id="inpTipoPoblacion" class="form-select">
-                                <option value="">Seleccione…</option>
-                                <option value="Indígenas">Indígenas</option>
-                                <option value="Afrocolombianos">Afrocolombianos</option>
-                                <option value="Raizal">Raizal</option>
-                                <option value="Palenquero">Palenquero</option>
-                                <option value="Rrom">Rrom</option>
-                            </select>
-                        </div>
+<div class="col-md-6">
+                        <label class="form-label">Tipo de población</label>
+                        <select id="inpTipoPoblacion" class="form-select">
+                            <option value="">Seleccione…</option>
+                            <option value="Indígenas">Indígenas</option>
+                            <option value="Afrocolombianos">Afrocolombianos</option>
+                            <option value="Raizal">Raizal</option>
+                            <option value="Palenquero">Palenquero</option>
+                            <option value="Rrom">Rrom</option>
+                        </select>
+                    </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre población / pueblo</label>
-                            <input id="inpNombrePoblacion" type="text" class="form-control"
-                                placeholder="Ej: Awá, Pastos, Embera..." />
-                        </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre población / pueblo</label>
+                        <input id="inpNombrePoblacion" type="text" class="form-control"
+                            placeholder="Ej: Awá, Pastos, Embera..." />
+                    </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -289,16 +288,13 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Valor del contrato (COP)</label>
-                            <input id="inpContratoValor" type="text" class="form-control" inputmode="numeric"
-                                placeholder="0" />
-                            <div class="form-text">Puedes pegar valores con $ o puntos; se normaliza automáticamente.
-                            </div>
+                            <input id="inpContratoValor" type="text" class="form-control" inputmode="numeric" placeholder="0" />
+                            <div class="form-text">Puedes pegar valores con $ o puntos; se normaliza automáticamente.</div>
                         </div>
 
                         <div class="col-12">
                             <label class="form-label">Objeto</label>
-                            <textarea id="inpContratoObjeto" class="form-control" rows="3"
-                                placeholder="Objeto del contrato..."></textarea>
+                            <textarea id="inpContratoObjeto" class="form-control" rows="3" placeholder="Objeto del contrato..."></textarea>
                         </div>
 
                         <div class="col-md-6">
@@ -347,10 +343,6 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabContratoProyectos"
                                 type="button" role="tab">Proyectos</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabContratoPagos"
-                                type="button" role="tab">Pagos</button>
                         </li>
                     </ul>
 
@@ -412,7 +404,8 @@
                                 </div>
                                 <div class="flex-grow-1" style="min-width:260px;">
                                     <label class="form-label">URL</label>
-                                    <input id="mcDocUrl" type="url" class="form-control" placeholder="https://..." />
+                                    <input id="mcDocUrl" type="url" class="form-control"
+                                        placeholder="https://..." />
                                 </div>
                                 <div>
                                     <button id="btnAgregarDoc" class="btn btn-outline-primary">
@@ -476,118 +469,6 @@
                                 Nota: solo puedes vincular proyectos del mismo grupo del contrato.
                             </div>
                         </div>
-
-                        <!-- TAB: Pagos -->
-                        <div class="tab-pane fade" id="tabContratoPagos" role="tabpanel">
-                            <div class="row g-2 align-items-end mb-2">
-                                <div class="col-md-2">
-                                    <label class="form-label">Orden</label>
-                                    <input id="mcPagoOrden" type="number" class="form-control" min="1" step="1"
-                                        placeholder="1" />
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Nombre</label>
-                                    <input id="mcPagoNombre" type="text" class="form-control"
-                                        placeholder="Ej: Primer pago" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Porcentaje</label>
-                                    <input id="mcPagoPorc" type="text" inputmode="decimal" class="form-control"
-                                        placeholder="50" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Valor (auto)</label>
-                                    <input id="mcPagoValor" type="text" class="form-control" disabled />
-                                </div>
-                                <div class="col-md-2 d-grid">
-                                    <button id="btnAgregarPago" type="button" class="btn btn-outline-primary">+
-                                        Agregar</button>
-                                </div>
-                            </div>
-
-                            <div class="form-text mb-2">
-                                Total porcentajes: <strong><span id="mcPagoSuma">0</span>%</strong>
-                                &nbsp;|&nbsp; Restante: <strong><span id="mcPagoRestante">100</span>%</strong>
-                            </div>
-
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width:70px;">Orden</th>
-                                            <th>Nombre</th>
-                                            <th class="text-end" style="width:90px;">%</th>
-                                            <th class="text-end" style="width:140px;">Valor</th>
-                                            <th class="text-end" style="width:110px;">Productos</th>
-                                            <th class="text-end" style="width:120px;">Finalizados</th>
-                                            <th class="text-end" style="width:120px;">Legalización</th>
-                                            <th class="text-end" style="width:160px;">Valor legalizado</th>
-                                            <th class="text-center" style="width:90px;">Acción</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tblPagos">
-                                        <tr>
-                                            <td colspan="9" class="text-muted p-3">Sin pagos.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <hr class="my-3">
-
-                            <h6 class="mb-2">Asignación de productos al pago</h6>
-
-                            <div class="row g-2 align-items-end mb-2">
-                                <div class="col-md-4">
-                                    <label class="form-label">Pago</label>
-                                    <select id="mcSelPago" class="form-select">
-                                        <option value="">Seleccione…</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label">Proyecto</label>
-                                    <select id="mcSelPagoProyecto" class="form-select">
-                                        <option value="">Seleccione…</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Buscar</label>
-                                    <input id="mcPagoBuscar" type="text" class="form-control"
-                                        placeholder="Filtrar por ID/URL" />
-                                </div>
-                            </div>
-
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="mcChkSoloNoAsignados">
-                                <label class="form-check-label" for="mcChkSoloNoAsignados">Mostrar solo no
-                                    asignados</label>
-                            </div>
-
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width:55px;"></th>
-                                            <th>Producto</th>
-                                            <th style="width:140px;">Estado</th>
-                                            <th>URL</th>
-                                            <th style="width:200px;">Asignado a</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tblPagoProductos">
-                                        <tr>
-                                            <td colspan="5" class="text-muted p-3">Seleccione un pago y un proyecto.
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div class="form-text mt-2">
-                                Tip: si un producto ya está asignado a otro pago, aparece bloqueado.
-                            </div>
-                        </div>
-
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -598,7 +479,7 @@
     </div>
 
 
-    <!-- Scripts -->
+<!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="assets/js/supabaseClient.js"></script>

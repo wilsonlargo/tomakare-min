@@ -50,19 +50,6 @@ function parseCOP(input) {
     return Number(digits || 0);
 }
 
-// Para inputs de porcentaje (acepta coma o punto, ej: "50,18" o "50.18")
-function parsePercent(input) {
-    const raw = String(input ?? "").trim();
-    if (!raw) return 0;
-    // dejar solo dígitos, coma, punto y signo menos
-    const cleaned = raw.replace(/[^0-9,.-]/g, "");
-    // si viene con coma decimal, normalizar a punto
-    const normalized = cleaned.replace(",", ".");
-    const val = Number(normalized);
-    return isFinite(val) ? val : 0;
-}
-
-
 function formatCOPString(n) {
     const val = Number(n || 0);
     return val ? val.toLocaleString("es-CO") : "0";
@@ -95,10 +82,6 @@ function escapeHtml(str) {
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
 }
-
-// Estados considerados como "cumplidos" para legalización (ajustable)
-// Por defecto: finalizado + validado
-const ESTADOS_CUMPLIDOS = new Set(["finalizado", "validado"]);
 
 function todayISODate() {
     // YYYY-MM-DD en hora local
@@ -913,7 +896,7 @@ function pct(n) {
 
 function calcValorPago(contratoValor, porcentaje) {
     const v = Number(contratoValor || 0);
-    const p = (typeof porcentaje === 'number') ? porcentaje : parsePercent(porcentaje);
+    const p = Number(porcentaje || 0);
     return Math.round((v * (p / 100)) * 100) / 100;
 }
 
@@ -927,10 +910,6 @@ function setPagoSumaUI(sumPct) {
 async function loadPagosAndResumen() {
     // carga pagos + resumen en una sola vista
     if (!contratoManage.id) return;
-
-    // preservar selecciones para no obligar al usuario a re-seleccionar
-    const prevPago = document.getElementById("mcSelPago")?.value || "";
-    const prevProy = document.getElementById("mcSelPagoProyecto")?.value || "";
 
     // Pagos (tabla)
     const { data: pagos, error: pErr } = await supabaseClient
@@ -950,27 +929,14 @@ async function loadPagosAndResumen() {
         .order("orden", { ascending: true });
 
     if (rErr) {
-        // Fallback: si no existe la vista, seguimos mostrando pagos sin resumen detallado
-        console.warn("PAGO RESUMEN VIEW WARN:", rErr);
-        const contratoValor = Number(contratoManage?.data?.valor || 0);
-        contratoManage.pagosResumen = (pagos || []).map((p) => ({
-            pago_id: p.id,
-            contrato_id: p.contrato_id,
-            nombre: p.nombre,
-            orden: p.orden,
-            porcentaje: p.porcentaje,
-            contrato_valor: contratoValor,
-            valor_pago: calcValorPago(contratoValor, p.porcentaje),
-            productos_total: 0,
-            productos_finalizados: 0,
-            avance: 0,
-            valor_legalizado: 0,
-        }));
-        // Sugerencia visible para que el usuario complete el Paso SQL
-        setMsg("msgModalContratoManage", "⚠️ No encontré la vista v_pago_resumen. Se muestran los pagos, pero sin legalización hasta crear las vistas.", "warning");
-    } else {
-        contratoManage.pagosResumen = resumen || [];
+        // si no existe la vista, deja mensaje claro
+        console.error("PAGO RESUMEN VIEW ERROR:", rErr);
+        throw new Error(
+            `No pude leer v_pago_resumen. Verifica que exista la vista (Paso SQL Pagos). ${rErr.message}`
+        );
     }
+
+    contratoManage.pagosResumen = resumen || [];
 
     // Asignaciones por contrato (para bloquear productos asignados a otros pagos)
     await loadAsignacionesContrato();
@@ -980,19 +946,8 @@ async function loadPagosAndResumen() {
     setPagoSumaUI(sumPct);
 
     // refrescar selects
-    renderPagoSelect(prevPago);
-    renderPagoProyectoSelect(prevProy);
-}
-
-async function loadResumenPagosOnly() {
-    if (!contratoManage.id) return;
-    const { data: resumen, error } = await supabaseClient
-        .from("v_pago_resumen")
-        .select("*")
-        .eq("contrato_id", contratoManage.id)
-        .order("orden", { ascending: true });
-    if (error) throw error;
-    contratoManage.pagosResumen = resumen || [];
+    renderPagoSelect();
+    renderPagoProyectoSelect();
 }
 
 function renderPagosTable() {
@@ -1032,33 +987,24 @@ function renderPagosTable() {
     });
 }
 
-function renderPagoSelect(preserveValue = null) {
+function renderPagoSelect() {
     const sel = document.getElementById("mcSelPago");
     if (!sel) return;
-
-    const prev = preserveValue !== null ? preserveValue : sel.value;
 
     const pagos = contratoManage.pagos || [];
     sel.innerHTML = `<option value="">Seleccione…</option>` + pagos.map((p) =>
         `<option value="${escapeHtml(p.id)}">${escapeHtml(`${p.orden ?? ""}`)}. ${escapeHtml(p.nombre || "Pago")}</option>`
     ).join("");
-
-    // restaurar selección si aún existe
-    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
-function renderPagoProyectoSelect(preserveValue = null) {
+function renderPagoProyectoSelect() {
     const sel = document.getElementById("mcSelPagoProyecto");
     if (!sel) return;
-
-    const prev = preserveValue !== null ? preserveValue : sel.value;
 
     const vinculados = contratoManage.proyectosVinculados || [];
     sel.innerHTML = `<option value="">Seleccione…</option>` + vinculados.map((p) =>
         `<option value="${escapeHtml(p.proyecto_id)}">${escapeHtml(p.nombre || "—")}</option>`
     ).join("");
-
-    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 async function refreshPagoUI() {
@@ -1082,7 +1028,7 @@ async function addPago() {
         if (!contratoManage.id) throw new Error("Contrato no seleccionado.");
 
         const nombre = document.getElementById("mcPagoNombre").value.trim();
-        const porcentaje = parsePercent(document.getElementById("mcPagoPorc").value);
+        const porcentaje = Number(document.getElementById("mcPagoPorc").value);
 
         if (!nombre) return setMsg("msgModalContratoManage", "El nombre del pago es obligatorio.", "warning");
         if (!isFinite(porcentaje) || porcentaje <= 0) return setMsg("msgModalContratoManage", "El porcentaje debe ser mayor a 0.", "warning");
@@ -1124,8 +1070,6 @@ async function addPago() {
         setTimeout(() => hideMsg("msgModalContratoManage"), 900);
     } catch (e) {
         console.error("ADD PAGO ERROR:", e);
-        const mb = document.querySelector("#modalContratoManage .modal-body");
-        if (mb) mb.scrollTop = 0;
         setMsg("msgModalContratoManage", "❌ " + (e.message || e), "danger");
     }
 }
@@ -1186,7 +1130,7 @@ async function loadProductosByProyecto(proyectoId) {
 
     const { data, error } = await supabaseClient
         .from("v_producto_por_proyecto")
-        .select("producto_id, descripcion, estado, url")
+        .select("producto_id, estado, url")
         .eq("proyecto_id", proyectoId)
         .order("producto_id", { ascending: true });
 
@@ -1216,14 +1160,9 @@ async function renderPagoProductos() {
     if (!contratoManage.asignaciones) contratoManage.asignaciones = [];
     const asignMap = getAsignacionMap();
 
-    // productos por proyecto (cache simple para no reconsultar en cada check)
-    let productos = [];
-    if (contratoManage.productosCache?.proyectoId === proyectoId) {
-        productos = contratoManage.productosCache.productos || [];
-    } else {
-        productos = await loadProductosByProyecto(proyectoId);
-        contratoManage.productosCache = { proyectoId, productos };
-    }
+    // productos por proyecto
+    const productos = await loadProductosByProyecto(proyectoId);
+    contratoManage.productosProyecto = productos;
 
     const filtro = (document.getElementById("mcPagoBuscar")?.value || "").trim().toLowerCase();
     const soloNoAsign = !!document.getElementById("mcChkSoloNoAsignados")?.checked;
@@ -1231,8 +1170,7 @@ async function renderPagoProductos() {
     const filtrados = productos.filter((p) => {
         const pid = String(p.producto_id || "").toLowerCase();
         const url = String(p.url || "").toLowerCase();
-        const desc = String(p.descripcion || "").toLowerCase();
-        const match = !filtro || pid.includes(filtro) || url.includes(filtro) || desc.includes(filtro);
+        const match = !filtro || pid.includes(filtro) || url.includes(filtro);
 
         const asig = asignMap.get(p.producto_id);
         const isAsignadoOtro = asig && asig.pago_id !== pagoId;
@@ -1262,15 +1200,7 @@ async function renderPagoProductos() {
         const disabled = locked ? "disabled" : "";
 
         const estado = (p.estado || "—").toString();
-        const isDone = ESTADOS_CUMPLIDOS.has(estado.toLowerCase());
-        const badgeCls = isDone ? "success" : "secondary";
-
-        const descLabel = (p.descripcion && String(p.descripcion).trim())
-            ? String(p.descripcion).trim()
-            : "";
-        const labelHtml = descLabel
-            ? `${escapeHtml(descLabel)}<div class="text-muted small"><code>${escapeHtml(p.producto_id)}</code></div>`
-            : `<code>${escapeHtml(p.producto_id)}</code>`;
+        const badgeCls = estado.toLowerCase() === "finalizado" ? "success" : "secondary";
 
         return `
 <tr>
@@ -1278,7 +1208,7 @@ async function renderPagoProductos() {
     <input class="form-check-input chk-prod-pago" type="checkbox"
       data-producto="${escapeHtml(p.producto_id)}" ${checked} ${disabled} />
   </td>
-  <td>${labelHtml}</td>
+  <td><code>${escapeHtml(p.producto_id)}</code></td>
   <td><span class="badge bg-${badgeCls}">${escapeHtml(estado)}</span></td>
   <td class="truncate" title="${safeUrl}">${link}</td>
   <td>${locked ? `<span class="badge bg-warning text-dark">Bloqueado</span> ${escapeHtml(assignedTo)}` : escapeHtml(assignedTo)}</td>
@@ -1315,27 +1245,15 @@ async function toggleProductoPago(pagoId, productoId, checked) {
             if (error) throw error;
         }
 
-        // refrescar SOLO lo necesario (más rápido y sin perder selecciones)
-        await loadAsignacionesContrato();
-        try {
-            await loadResumenPagosOnly();
-        } catch (err) {
-            console.warn("RESUMEN ONLY WARN:", err);
-        }
-        renderPagosTable();
-        await renderPagoProductos();
+        // refrescar asignaciones + resumen
+        await loadPagosAndResumen();
+        await refreshPagoUI();
     } catch (e) {
         console.error("TOGGLE PROD PAGO ERROR:", e);
         setMsg("msgModalContratoManage", "❌ " + (e.message || e), "danger");
         // refrescar para deshacer UI incorrecta
-        await loadAsignacionesContrato();
-        try {
-            await loadResumenPagosOnly();
-        } catch (err) {
-            console.warn("RESUMEN ONLY WARN:", err);
-        }
-        renderPagosTable();
-        await renderPagoProductos();
+        await loadPagosAndResumen();
+        await refreshPagoUI();
     }
 }
 
@@ -1482,6 +1400,20 @@ async function init() {
     if (inpBuscarPago) inpBuscarPago.addEventListener("input", renderPagoProductos);
     if (chkSoloNo) chkSoloNo.addEventListener("change", renderPagoProductos);
 
+
+
+    
+    const tabPagosBtn = document.querySelector('button[data-bs-target="#tabContratoPagos"]');
+    if (tabPagosBtn) {
+        tabPagosBtn.addEventListener("shown.bs.tab", async () => {
+            try {
+                await loadPagosAndResumen();
+                await refreshPagoUI();
+            } catch (e) {
+                console.error("TAB PAGOS REFRESH ERROR:", e);
+            }
+        });
+    }
 
 
     // cascada Dep -> Mun (un solo listener)
