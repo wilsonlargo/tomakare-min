@@ -2107,33 +2107,7 @@ async function pastePresupuestoItem(db) {
       return;
     }
 
-    // Intentar mapear el texto "Rubro" pegado (col 1) al catálogo rubro.nombre/codigo
-    const normKey = (s) =>
-      String(s || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // quita tildes
-        .replace(/[^a-z0-9]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const rubroTxt = String(db?.observaciones ?? "").trim(); // en el import, la col "Rubro" entra aquí
-    const rubroKey = normKey(rubroTxt);
-
-    let matchedRubro = null;
-    if (rubroKey) {
-      matchedRubro =
-        (cacheRubros || []).find((r) => normKey(r.nombre) === rubroKey) ||
-        (cacheRubros || []).find((r) => normKey(r.codigo) === rubroKey) ||
-        (cacheRubros || []).find((r) => normKey(r.nombre).startsWith(rubroKey)) ||
-        (cacheRubros || []).find((r) => rubroKey.startsWith(normKey(r.nombre)));
-    }
-
     const firstRubro = cacheRubros[0];
-    const rubro_id = matchedRubro?.id || firstRubro.id;
-
-    // Si matchea, no repetir el nombre del rubro en "observaciones"
-    const observaciones = matchedRubro ? null : (rubroTxt || null);
 
     let oper = document.getElementById("inputOperativos").value
     const nextOrden =
@@ -2142,8 +2116,8 @@ async function pastePresupuestoItem(db) {
         : 1;
     const payload = {
       actividad_id: actividadActivaId,
-      rubro_id: rubro_id,
-      observaciones: observaciones,
+      rubro_id: firstRubro.id,
+      observaciones: db.observaciones,
       beneficiarios: db.beneficiarios,
       veces: db.veces,
       valor_unitario: db.valor_unitario,
@@ -2180,7 +2154,7 @@ const EXPECTED_COLS = RUBRO_HEADERS.length; // 4
 /* =========================
    UTILIDADES
    ========================= */
-function setImportMsg(html, type = "muted") {
+function setMsg(html, type = "muted") {
   const el = document.getElementById("importRubroMsg");
   el.className = `small mt-2 text-${type}`;
   el.innerHTML = html || "";
@@ -2359,7 +2333,7 @@ function collectRubrosAsRows() {
    ACCIONES: LEER PORTAPAPELES / PEGADO / LIMPIAR / EXPORTAR
    ========================= */
 async function buildFromClipboardRubros() {
-  setImportMsg("");
+  setMsg("");
   try {
     const text = await navigator.clipboard.readText();
     const rows = parseTSVStrict(text, EXPECTED_COLS);
@@ -2373,16 +2347,16 @@ async function buildFromClipboardRubros() {
     ]));
 
     renderRubrosTable(cleaned);
-    setImportMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
+    setMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
   } catch (e) {
     console.error(e);
-    setImportMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
+    setMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
       Usa el cuadro de pegado manual si es un tema de permisos.`, "danger");
   }
 }
 
 function buildFromTextareaRubros() {
-  setImportMsg("");
+  setMsg("");
   try {
     const text = document.getElementById("txtPegadoRubro").value || "";
     const rows = parseTSVStrict(text, EXPECTED_COLS);
@@ -2393,54 +2367,37 @@ function buildFromTextareaRubros() {
       normalizeNumericCell(r[3]),
     ]));
     renderRubrosTable(cleaned);
-    setImportMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
+    setMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
   } catch (e) {
-    setImportMsg(`Error: ${escapeHtml(e.message)}`, "danger");
+    setMsg(`Error: ${escapeHtml(e.message)}`, "danger");
   }
 }
 
 function clearRubros() {
   document.getElementById("txtPegadoRubro").value = "";
   renderRubrosTable([]);
-  setImportMsg("Tabla limpiada.", "muted");
+  setMsg("Tabla limpiada.", "muted");
 }
 
-
 async function exportRubrosJSON() {
-  // Importa a la BD lo que ya está en la tabla preview (no JSON del portapapeles)
   try {
-    setImportMsg("");
+    const text = await navigator.clipboard.readText();
+    const json = JSON.parse(text);
 
-    const rows = collectRubrosFromTable(); // [{observaciones (texto rubro), beneficiarios, veces, valor_unitario}, ...]
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return setImportMsg("No hay filas en la tabla para importar. Primero pega o lee el portapapeles.", "warning");
+    if (!Array.isArray(json) || json.length === 0) {
+      return setMsg("importRubroMsg", "❌ El portapapeles no contiene un array JSON válido.", "danger");
     }
 
-    // Filtrar filas vacías y validar mínimos
-    const cleaned = (rows || [])
-      .map((r) => ({
-        observaciones: (r?.observaciones ?? "").trim(),
-        beneficiarios: (r?.beneficiarios ?? null),
-        veces: (r?.veces ?? null),
-        valor_unitario: (r?.valor_unitario ?? null),
-      }))
-      .filter((r) => r.observaciones || r.beneficiarios !== null || r.veces !== null || r.valor_unitario !== null);
-
-    if (cleaned.length === 0) {
-      return setImportMsg("La tabla está vacía (o sin datos).", "warning");
-    }
-
-    let imported = 0;
-    for (const item of cleaned) {
+    // 👇 IMPORTANTE: eliminar inserción duplicada
+    for (const item of json) {
       await pastePresupuestoItem(item);
-      imported++;
     }
 
-    setImportMsg(`✅ Importados ${imported} rubros.`, "success");
+    setMsg("importRubroMsg", `✅ Importados ${json.length} rubros.`, "success");
+
   } catch (e) {
     console.error(e);
-    setImportMsg("❌ " + (e.message || e), "danger");
+    setMsg("importRubroMsg", "❌ " + (e.message || e), "danger");
   }
 }
 
@@ -2454,7 +2411,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnAbrirImportRubro").addEventListener("click", () => {
     modal.show();
-    setImportMsg("");
+    setMsg("");
   });
 
   document.getElementById("btnLeerClipboardRubro").addEventListener("click", buildFromClipboardRubros);
@@ -2472,7 +2429,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const rows = collectRubrosAsRows();
     rows.splice(rowIndex, 1);
     renderRubrosTable(rows);
-    setImportMsg("Fila eliminada.", "muted");
+    setMsg("Fila eliminada.", "muted");
   });
 
   // Render inicial con header fijo (sin filas)
