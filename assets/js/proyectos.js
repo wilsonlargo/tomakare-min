@@ -586,6 +586,8 @@ function docTypeLabel(t) {
         estudio_previo: "Estudio previo",
         propuesta_tecnica: "Propuesta técnica",
         propuesta_financiera: "Propuesta financiera",
+        acta_comite: "Acta comité",
+        otro: "Otro",
     };
     return map[t] || (t || "—");
 }
