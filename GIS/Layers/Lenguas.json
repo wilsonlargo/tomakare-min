@@ -80,6 +80,8 @@
   {
     "nombre": "Yukpa",
     "iso": "yup",
+    "img":"yukpaej.jpg",
+    "audio":"yukpaej.wav",
     "familia": "Caribe",
     "poblacion_aprox": 4700,
     "lugares": [

@@ -63,3 +63,12 @@
 /* [P2-B1] Items de leyenda */
 .legend-item { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
 .legend-dot  { width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.2); }
+
+  .foto {
+    width: 200px;               /* Ajusta el tamaño a tu gusto */
+    height: auto;
+    border-radius: 20px;        /* Esto redondea los bordes */
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.2); /* Crea el efecto flotante */
+    display: block;
+    margin: 20px auto;          /* Centra la imagen */
+  }

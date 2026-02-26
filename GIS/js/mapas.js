@@ -119,7 +119,7 @@ async function cargarMapabaseGeoJSON() {
             pane: "pane2",
             style: () => ({
                 weight: 1,
-                color:"gray",
+                color: "gray",
                 opacity: 1,
                 fillOpacity: 1,
                 fillColor: "white",
@@ -235,7 +235,7 @@ async function cargarLenguasComoCapas() {
             .sort((a, b) => a.localeCompare(b));
 
         // Paleta
-      const palette = [
+        const palette = [
             "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
             "#2ca02c", "#98df8a", "#d62728", "#ff9896",
             "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
@@ -257,6 +257,8 @@ async function cargarLenguasComoCapas() {
         for (const lengua of arr) {
             const nombre = lengua.nombre || "Sin nombre";
             const iso = lengua.iso || lengua.iso639_3 || "";
+            const img = lengua.img || lengua.img || "";
+            const audio = lengua.audio || lengua.audio || "";
             const fam = (lengua.familia || "Sin familia").trim();
             const pobl = lengua.poblacion_aprox ?? null;
             const color = coloresFamiliaLenguas[fam] || "#444";
@@ -280,6 +282,11 @@ async function cargarLenguasComoCapas() {
                     fillOpacity: 1
                 }).bindPopup(`
           <div style="min-width:240px">
+            <img src="${escapeHtml(img)}" alt="" class="foto">
+            <audio controls>
+            <source src="${escapeHtml(audio)}" type="audio/mpeg">
+                Tu navegador no soporta el elemento de audio.
+            </audio>
             <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(nombre)}</div>
             <div><b>ISO:</b> ${escapeHtml(iso)}</div>
             <div><b>Familia:</b> ${escapeHtml(fam)}</div>
