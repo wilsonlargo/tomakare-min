@@ -72,3 +72,7 @@
     display: block;
     margin: 20px auto;          /* Centra la imagen */
   }
+  .mi-imagen-agrandada {
+    transform: scale(3); /* 150% del tamaño original */
+    transform-origin: center;
+}
