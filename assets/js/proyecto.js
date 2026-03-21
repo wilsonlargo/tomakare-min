@@ -1,6 +1,27 @@
-// assets/js/proyecto.js
 let cacheRubros = [];
 let cachePresupuesto = [];
+const proyectoId = qs("id");
+// Selecciones activas
+let objetivoActivoId = null;
+let actividadActivaId = null;
+
+// Caches
+let cacheObjetivos = [];
+let cacheActividades = [];
+let cacheProductos = [];
+
+
+/* =========================
+   Medios de verificación (Producto)
+========================= */
+let mvDraft = [];
+
+
+/* =========================
+   PUEBLOS (MULTI) DESDE CATÁLOGO "Pueblos"
+========================= */
+let cachePueblosCatalog = [];   // strings (nombres)
+let pueblosDraft = [];          // strings seleccionados
 
 function qs(name) {
   return new URLSearchParams(window.location.search).get(name);
@@ -57,30 +78,6 @@ function hideMsgModal(id) {
   el.style.display = "none";
 }
 
-const proyectoId = qs("id");
-
-// Selecciones activas
-let objetivoActivoId = null;
-let actividadActivaId = null;
-
-// Caches
-let cacheObjetivos = [];
-let cacheActividades = [];
-let cacheProductos = [];
-
-/* =========================
-   Medios de verificación (Producto)
-========================= */
-let mvDraft = [];
-
-
-
-/* =========================
-   PUEBLOS (MULTI) DESDE CATÁLOGO "Pueblos"
-========================= */
-let cachePueblosCatalog = [];   // strings (nombres)
-let pueblosDraft = [];          // strings seleccionados
-
 function normPueblo(s) {
   return String(s ?? "")
     .trim()
@@ -110,15 +107,15 @@ function renderPueblosChips() {
   if (!wrap) return;
 
   if (!Array.isArray(pueblosDraft) || pueblosDraft.length === 0) {
-    wrap.innerHTML = `<span class="text-muted small">Sin pueblos agregados.</span>`;
+    wrap.innerHTML = `<span class="text-danger small">Sin pueblos agregados.</span>`;
     setPueblosMirrorInput();
     return;
   }
 
   wrap.innerHTML = pueblosDraft.map((p) => `
-    <span class="badge rounded-pill text-bg-secondary d-inline-flex align-items-center gap-2">
+    <span class="badge rounded-pill text-bg-success d-inline-flex align-items-center gap-2">
       ${escapeHtml(p)}
-      <button type="button" class="btn btn-sm btn-light py-0 px-1" data-del-pueblo="${escapeHtml(p)}" title="Quitar">×</button>
+      <button type="button" class="btn btn-sm btn-light py-0 px-1 m-1" data-del-pueblo="${escapeHtml(p)}" title="Quitar">×</button>
     </span>
   `).join("");
 
