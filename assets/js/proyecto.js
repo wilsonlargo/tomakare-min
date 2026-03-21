@@ -73,6 +73,151 @@ let cacheProductos = [];
 ========================= */
 let mvDraft = [];
 
+
+
+/* =========================
+   PUEBLOS (MULTI) DESDE CATÁLOGO "Pueblos"
+========================= */
+let cachePueblosCatalog = [];   // strings (nombres)
+let pueblosDraft = [];          // strings seleccionados
+
+function normPueblo(s) {
+  return String(s ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function uniqueByNorm(arr) {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr || []) {
+    const n = normPueblo(x);
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    out.push(String(x).trim().replace(/\s+/g, " "));
+  }
+  return out;
+}
+
+function setPueblosMirrorInput() {
+  const mirror = document.getElementById("inpNombrePoblacion");
+  if (mirror) mirror.value = (pueblosDraft || []).join(", ");
+}
+
+function renderPueblosChips() {
+  const wrap = document.getElementById("pueblosChips");
+  if (!wrap) return;
+
+  if (!Array.isArray(pueblosDraft) || pueblosDraft.length === 0) {
+    wrap.innerHTML = `<span class="text-muted small">Sin pueblos agregados.</span>`;
+    setPueblosMirrorInput();
+    return;
+  }
+
+  wrap.innerHTML = pueblosDraft.map((p) => `
+    <span class="badge rounded-pill text-bg-secondary d-inline-flex align-items-center gap-2">
+      ${escapeHtml(p)}
+      <button type="button" class="btn btn-sm btn-light py-0 px-1" data-del-pueblo="${escapeHtml(p)}" title="Quitar">×</button>
+    </span>
+  `).join("");
+
+  wrap.querySelectorAll("[data-del-pueblo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.delPueblo;
+      pueblosDraft = pueblosDraft.filter(x => normPueblo(x) !== normPueblo(name));
+      renderPueblosChips();
+    });
+  });
+
+  setPueblosMirrorInput();
+}
+
+function getPuebloLabelFromRow(row) {
+  const candidates = ["nombre", "pueblo", "name", "Nombre", "Pueblo"];
+  for (const k of candidates) {
+    if (row && typeof row[k] === "string" && row[k].trim()) return row[k].trim();
+  }
+  for (const k of Object.keys(row || {})) {
+    if (typeof row[k] === "string" && row[k].trim()) return row[k].trim();
+  }
+  return "";
+}
+
+async function loadPueblosCatalog() {
+  const sel = document.getElementById("selPuebloPicker");
+  if (!sel) return;
+
+  const { data, error } = await supabaseClient
+    .from("pueblos")     // o "Pueblos" si sigues usando mayúscula exacta
+    .select("*");
+
+  if (error) {
+    console.warn("No pude cargar catálogo de pueblos:", error);
+    cachePueblosCatalog = [];
+    sel.innerHTML = `<option value="">— Sin catálogo —</option>`;
+    return;
+  }
+
+  const names = uniqueByNorm((data || []).map(getPuebloLabelFromRow).filter(Boolean));
+  cachePueblosCatalog = names;
+
+  sel.innerHTML =
+    `<option value="">— Selecciona un pueblo —</option>` +
+    names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+}
+
+function addPuebloFromPicker() {
+  const sel = document.getElementById("selPuebloPicker");
+  if (!sel) return;
+
+  const name = String(sel.value || "").trim().replace(/\s+/g, " ");
+  if (!name) return;
+
+  // Si el catálogo está cargado, validamos que exista (por seguridad)
+  if (cachePueblosCatalog.length) {
+    const ok = cachePueblosCatalog.some(x => normPueblo(x) === normPueblo(name));
+    if (!ok) {
+      setMsg(`El pueblo "${name}" no está en el catálogo.`, "warning");
+      return;
+    }
+  }
+
+  pueblosDraft = uniqueByNorm([...(pueblosDraft || []), name]);
+
+  // Limpia selección para agilizar repetición
+  sel.value = "";
+
+  renderPueblosChips();
+}
+
+function initPueblosUI() {
+  const sel = document.getElementById("selPuebloPicker");
+  const btn = document.getElementById("btnAddPueblo");
+  const wrap = document.getElementById("pueblosChips");
+  if (!sel || !wrap) return;
+
+  btn?.addEventListener("click", addPuebloFromPicker);
+
+  // opcional: al cambiar selección, agrega automáticamente
+  sel.addEventListener("change", () => {
+    if (sel.value) addPuebloFromPicker();
+  });
+
+  renderPueblosChips();
+}
+
+function syncPueblosDraftFromProject(data) {
+  if (Array.isArray(data?.pueblos)) {
+    pueblosDraft = uniqueByNorm(data.pueblos);
+  } else {
+    const txt = String(data?.nombre_poblacion || "");
+    pueblosDraft = uniqueByNorm(txt.split(/[,;]+/g).map(s => s.trim()).filter(Boolean));
+  }
+  renderPueblosChips();
+}
+
+
 function renderMVRows() {
   const tb = document.getElementById("mvRows");
   if (!tb) return; // si aún no pegaste el bloque HTML, no revienta
@@ -237,8 +382,8 @@ function setMsgTerritorios(text, type = "muted") {
   if (!el) return;
   const cls =
     type === "danger" ? "text-danger" :
-    type === "warning" ? "text-warning" :
-    type === "success" ? "text-success" : "text-muted";
+      type === "warning" ? "text-warning" :
+        type === "success" ? "text-success" : "text-muted";
   el.className = `small ${cls}`;
   el.textContent = text || "";
 }
@@ -324,7 +469,7 @@ function addTerritorioDraftFromUI() {
   const dup = (territoriosDraft || []).some(x =>
     (mun.id && String(x.municipio_id) === String(mun.id)) ||
     (!mun.id && String(x.municipio_lugar || "").toLowerCase() === String(mun.lugar).toLowerCase()
-              && String(x.departamento_nombre || "").toLowerCase() === String(dep.nombre).toLowerCase())
+      && String(x.departamento_nombre || "").toLowerCase() === String(dep.nombre).toLowerCase())
   );
   if (dup) {
     setMsgTerritorios("Ese municipio ya está agregado en este proyecto.", "warning");
@@ -422,8 +567,7 @@ async function loadProyecto() {
     .from("proyecto")
     .select(`
       id, vigencia, nombre, manager, objetivo, nodo, linea, estrategia,
-      departamento, municipio, lugar,
-      tipo_poblacion, nombre_poblacion
+      tipo_poblacion,enfoque, pueblos
     `)
     .eq("id", proyectoId)
     .single();
@@ -448,20 +592,23 @@ async function loadProyecto() {
   setVal("inpLugar", data.lugar);
   setVal("inpTipoPoblacion", data.tipo_poblacion);
   setVal("inpNombrePoblacion", data.nombre_poblacion);
+  setVal("inpEnfoPoblacion", data.enfoque);
+  syncPueblosDraftFromProject(data);
+
 
   await loadDepartamentos();
   document.getElementById("inpDepartamento").value = data.departamento ?? "";
   await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
 
-// Territorialización múltiple (si existe en la página)
-try {
-  if (document.getElementById("btnAddTerritorio")) {
-    await loadTerritoriosProyecto();
-    try { syncTerritorioInputsFromMunicipio(); } catch (_) {}
+  // Territorialización múltiple (si existe en la página)
+  try {
+    if (document.getElementById("btnAddTerritorio")) {
+      await loadTerritoriosProyecto();
+      try { syncTerritorioInputsFromMunicipio(); } catch (_) { }
+    }
+  } catch (e) {
+    console.error("LOAD territorios error:", e);
   }
-} catch (e) {
-  console.error("LOAD territorios error:", e);
-}
   pintarTotalesObjetivos(data.id)
 }
 
@@ -473,8 +620,13 @@ async function guardarCambios() {
     if (!nombre) return setMsg("El nombre del proyecto es obligatorio.", "warning");
 
     const tipoP = document.getElementById("inpTipoPoblacion")?.value || "";
-    const nomPob = document.getElementById("inpNombrePoblacion")?.value?.trim() || "";
-    if ((tipoP && !nomPob) || (!tipoP && nomPob)) {
+    const hasPueblos = Array.isArray(pueblosDraft) && pueblosDraft.length > 0;
+    const nomPob = hasPueblos ? pueblosDraft.join(", ").trim() : "";
+    setPueblosMirrorInput(); // mantiene compatibilidad
+    const enfPob = document.getElementById("inpEnfoPoblacion")?.value?.trim() || "";
+
+
+    if ((tipoP && !hasPueblos) || (!tipoP && hasPueblos)) {
       return setMsg("Completa ambos: Tipo de población y Nombre población/pueblo.", "warning");
     }
 
@@ -488,29 +640,27 @@ async function guardarCambios() {
       linea: document.getElementById("inpLinea")?.value?.trim() || null,
       estrategia: document.getElementById("inpEstrategia")?.value?.trim() || null,
 
-      departamento: document.getElementById("inpDepartamento")?.value || null,
-      municipio: document.getElementById("inpMunicipio")?.value || null,
-      lugar: document.getElementById("inpLugar")?.value?.trim() || null,
-
       tipo_poblacion: tipoP || null,
       nombre_poblacion: nomPob || null,
+      enfoque: enfPob || null,
+      pueblos: Array.isArray(pueblosDraft) ? pueblosDraft : [],
     };
 
     const { error } = await supabaseClient.from("proyecto").update(payload).eq("id", proyectoId);
     if (error) throw error;
 
 
-// Guardar territorialización múltiple (si hay UI en la página)
-try {
-  if (document.getElementById("btnAddTerritorio")) {
-    await saveTerritoriosProyecto();
-  }
-} catch (e) {
-  console.error("SAVE territorios error:", e);
-  setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
-  document.getElementById("lblProyecto").textContent = nombre;
-  return;
-}
+    // Guardar territorialización múltiple (si hay UI en la página)
+    try {
+      if (document.getElementById("btnAddTerritorio")) {
+        await saveTerritoriosProyecto();
+      }
+    } catch (e) {
+      console.error("SAVE territorios error:", e);
+      setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
+      document.getElementById("lblProyecto").textContent = nombre;
+      return;
+    }
 
     document.getElementById("lblProyecto").textContent = nombre;
     setMsg("✅ Cambios guardados.", "success");
@@ -891,7 +1041,7 @@ function renderActividadesList() {
       e.stopPropagation();
       deleteActividad(btn.dataset.actDel);
     });
-  });box.querySelectorAll("[data-act-bit]").forEach((btn) => {
+  }); box.querySelectorAll("[data-act-bit]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       openModalBitacora(btn.dataset.actBit);
@@ -1262,13 +1412,13 @@ async function copyBitacora(reporteId) {
   const validados = await fetchProductosValidadosConEvidencia(bitActividadId);
   const validadosTxt = validados.length
     ? validados
-        .map((v) => {
-          const urlsTxt = (v.urls || []).length
-            ? (v.urls || []).map((u) => `  - ${u}`).join("\n")
-            : "  - (Sin link de evidencia)";
-          return `- ${v.producto}\n${urlsTxt}`;
-        })
-        .join("\n")
+      .map((v) => {
+        const urlsTxt = (v.urls || []).length
+          ? (v.urls || []).map((u) => `  - ${u}`).join("\n")
+          : "  - (Sin link de evidencia)";
+        return `- ${v.producto}\n${urlsTxt}`;
+      })
+      .join("\n")
     : "- —";
 
   const text = [
@@ -1366,24 +1516,24 @@ async function loadBitacoraHistorial(actividadId) {
               <div class="mb-2"><span class="text-muted">Lugares:</span>
                 <ul class="mb-0">
                   ${(lugares || [])
-                    .map(
-                      (l) =>
-                        `<li>${escapeHtml(
-                          (l.departamento || "") +
-                            " — " +
-                            (l.municipio || "") +
-                            (l.detalle ? " — " + l.detalle : "")
-                        )}</li>`
-                    )
-                    .join("")}
+          .map(
+            (l) =>
+              `<li>${escapeHtml(
+                (l.departamento || "") +
+                " — " +
+                (l.municipio || "") +
+                (l.detalle ? " — " + l.detalle : "")
+              )}</li>`
+          )
+          .join("")}
                 </ul>
               </div>
 
               <div class="mb-0"><span class="text-muted">Participantes (detalle):</span><br>${escapeHtml(
-                typeof r.participantes_detalle === "string"
-                  ? r.participantes_detalle
-                  : JSON.stringify(r.participantes_detalle || {})
-              )}</div>
+            typeof r.participantes_detalle === "string"
+              ? r.participantes_detalle
+              : JSON.stringify(r.participantes_detalle || {})
+          )}</div>
             </div>
           </div>
         </div>
@@ -1442,8 +1592,8 @@ async function loadProductosEvidenciasBitacora(actividadId) {
           : "";
       const btn = ev
         ? `<button class="btn btn-sm btn-outline-secondary" type="button" data-bit-open="${escapeHtml(
-            ev
-          )}" title="Ver evidencia">
+          ev
+        )}" title="Ver evidencia">
              <i class="bi bi-box-arrow-up-right"></i>
            </button>`
         : `<span class="badge text-bg-warning">Sin evidencia</span>`;
@@ -1495,31 +1645,31 @@ async function saveBitacoraEntry() {
     };
 
     const btn = document.getElementById("btnGuardarBitacora");
-const editId = bitEditId || (btn?.dataset?.editId ? String(btn.dataset.editId) : null);
+    const editId = bitEditId || (btn?.dataset?.editId ? String(btn.dataset.editId) : null);
 
-if (editId) {
-  const { data, error } = await supabaseClient
-    .from("actividad_bitacora")
-    .update(payload)
-    .eq("id", editId)
-    .select("id");
+    if (editId) {
+      const { data, error } = await supabaseClient
+        .from("actividad_bitacora")
+        .update(payload)
+        .eq("id", editId)
+        .select("id");
 
-  if (error) throw error;
+      if (error) throw error;
 
-  // Si RLS bloquea el update, a veces no da error y simplemente retorna 0 filas.
-  if (!data || data.length === 0) {
-    return setMsgBit(
-      "No se pudo actualizar (0 filas). Si tienes RLS activo, agrega una policy UPDATE para actividad_bitacora.",
-      "warning"
-    );
-  }
+      // Si RLS bloquea el update, a veces no da error y simplemente retorna 0 filas.
+      if (!data || data.length === 0) {
+        return setMsgBit(
+          "No se pudo actualizar (0 filas). Si tienes RLS activo, agrega una policy UPDATE para actividad_bitacora.",
+          "warning"
+        );
+      }
 
-  setMsgBit("✅ Reporte actualizado.", "success");
-} else {
-  const { error } = await supabaseClient.from("actividad_bitacora").insert([payload]);
-  if (error) throw error;
-  setMsgBit("✅ Reporte guardado en la bitácora.", "success");
-}
+      setMsgBit("✅ Reporte actualizado.", "success");
+    } else {
+      const { error } = await supabaseClient.from("actividad_bitacora").insert([payload]);
+      if (error) throw error;
+      setMsgBit("✅ Reporte guardado en la bitácora.", "success");
+    }
     resetBitForm();
     await loadBitacoraHistorial(bitActividadId);
   } catch (e) {
@@ -1850,13 +2000,13 @@ async function init() {
   });
 
 
-// Territorialización múltiple (UI opcional)
-if (document.getElementById("btnAddTerritorio")) {
-  document.getElementById("btnAddTerritorio")?.addEventListener("click", addTerritorioDraftFromUI);
-  document.getElementById("inpMunicipio")?.addEventListener("change", () => {
-    try { syncTerritorioInputsFromMunicipio(); } catch (e) { console.error(e); }
-  });
-}
+  // Territorialización múltiple (UI opcional)
+  if (document.getElementById("btnAddTerritorio")) {
+    document.getElementById("btnAddTerritorio")?.addEventListener("click", addTerritorioDraftFromUI);
+    document.getElementById("inpMunicipio")?.addEventListener("change", () => {
+      try { syncTerritorioInputsFromMunicipio(); } catch (e) { console.error(e); }
+    });
+  }
 
   document.getElementById("btnLogout")?.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
@@ -1880,6 +2030,13 @@ if (document.getElementById("btnAddTerritorio")) {
   });
 
   syncActionButtons();
+
+  try {
+    initPueblosUI();
+    await loadPueblosCatalog();
+  } catch (e) {
+    console.warn("Init Pueblos error:", e);
+  }
 
   try {
     await loadProyecto();
@@ -2539,7 +2696,7 @@ async function pintarAvanceObjetivos(proyectoId) {
   if (error) return console.error(error);
   (data || []).forEach(r => {
     const el = document.getElementById(`badgeObjAv${r.objetivo_id}`);
-    if (el) el.textContent ="Avance objetivo:  " + pct(r.avance);
+    if (el) el.textContent = "Avance objetivo:  " + pct(r.avance);
   });
 }
 
@@ -2547,7 +2704,7 @@ async function pintarAvanceProyecto(proyectoId) {
   const { data, error } = await supabaseClient.rpc("get_avance_proyecto", { p_proyecto_id: proyectoId });
   if (error) return console.error(error);
   const el = document.getElementById("lblAvanceProyecto");
-  if (el) el.textContent = "AVANCE DEL PROYECTO  - " +  pct(data);
+  if (el) el.textContent = "AVANCE DEL PROYECTO  - " + pct(data);
 }
 
 

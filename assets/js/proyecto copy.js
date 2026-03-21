@@ -237,8 +237,8 @@ function setMsgTerritorios(text, type = "muted") {
   if (!el) return;
   const cls =
     type === "danger" ? "text-danger" :
-    type === "warning" ? "text-warning" :
-    type === "success" ? "text-success" : "text-muted";
+      type === "warning" ? "text-warning" :
+        type === "success" ? "text-success" : "text-muted";
   el.className = `small ${cls}`;
   el.textContent = text || "";
 }
@@ -324,7 +324,7 @@ function addTerritorioDraftFromUI() {
   const dup = (territoriosDraft || []).some(x =>
     (mun.id && String(x.municipio_id) === String(mun.id)) ||
     (!mun.id && String(x.municipio_lugar || "").toLowerCase() === String(mun.lugar).toLowerCase()
-              && String(x.departamento_nombre || "").toLowerCase() === String(dep.nombre).toLowerCase())
+      && String(x.departamento_nombre || "").toLowerCase() === String(dep.nombre).toLowerCase())
   );
   if (dup) {
     setMsgTerritorios("Ese municipio ya está agregado en este proyecto.", "warning");
@@ -422,8 +422,7 @@ async function loadProyecto() {
     .from("proyecto")
     .select(`
       id, vigencia, nombre, manager, objetivo, nodo, linea, estrategia,
-      departamento, municipio, lugar,
-      tipo_poblacion, nombre_poblacion
+      tipo_poblacion, nombre_poblacion,enfoque
     `)
     .eq("id", proyectoId)
     .single();
@@ -448,20 +447,23 @@ async function loadProyecto() {
   setVal("inpLugar", data.lugar);
   setVal("inpTipoPoblacion", data.tipo_poblacion);
   setVal("inpNombrePoblacion", data.nombre_poblacion);
+  setVal("inpEnfoPoblacion", data.enfoque);
+
+
 
   await loadDepartamentos();
   document.getElementById("inpDepartamento").value = data.departamento ?? "";
   await loadMunicipiosByDepartamento(data.departamento ?? "", data.municipio ?? "");
 
-// Territorialización múltiple (si existe en la página)
-try {
-  if (document.getElementById("btnAddTerritorio")) {
-    await loadTerritoriosProyecto();
-    try { syncTerritorioInputsFromMunicipio(); } catch (_) {}
+  // Territorialización múltiple (si existe en la página)
+  try {
+    if (document.getElementById("btnAddTerritorio")) {
+      await loadTerritoriosProyecto();
+      try { syncTerritorioInputsFromMunicipio(); } catch (_) { }
+    }
+  } catch (e) {
+    console.error("LOAD territorios error:", e);
   }
-} catch (e) {
-  console.error("LOAD territorios error:", e);
-}
   pintarTotalesObjetivos(data.id)
 }
 
@@ -474,6 +476,8 @@ async function guardarCambios() {
 
     const tipoP = document.getElementById("inpTipoPoblacion")?.value || "";
     const nomPob = document.getElementById("inpNombrePoblacion")?.value?.trim() || "";
+    const enfPob = document.getElementById("inpEnfoPoblacion")?.value?.trim() || "";
+
     if ((tipoP && !nomPob) || (!tipoP && nomPob)) {
       return setMsg("Completa ambos: Tipo de población y Nombre población/pueblo.", "warning");
     }
@@ -488,29 +492,30 @@ async function guardarCambios() {
       linea: document.getElementById("inpLinea")?.value?.trim() || null,
       estrategia: document.getElementById("inpEstrategia")?.value?.trim() || null,
 
-      departamento: document.getElementById("inpDepartamento")?.value || null,
-      municipio: document.getElementById("inpMunicipio")?.value || null,
-      lugar: document.getElementById("inpLugar")?.value?.trim() || null,
+      //departamento: document.getElementById("inpDepartamento")?.value || null,
+      //municipio: document.getElementById("inpMunicipio")?.value || null,
+      //lugar: document.getElementById("inpLugar")?.value?.trim() || null,
 
       tipo_poblacion: tipoP || null,
       nombre_poblacion: nomPob || null,
+      enfoque: enfPob || null,
     };
 
     const { error } = await supabaseClient.from("proyecto").update(payload).eq("id", proyectoId);
     if (error) throw error;
 
 
-// Guardar territorialización múltiple (si hay UI en la página)
-try {
-  if (document.getElementById("btnAddTerritorio")) {
-    await saveTerritoriosProyecto();
-  }
-} catch (e) {
-  console.error("SAVE territorios error:", e);
-  setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
-  document.getElementById("lblProyecto").textContent = nombre;
-  return;
-}
+    // Guardar territorialización múltiple (si hay UI en la página)
+    try {
+      if (document.getElementById("btnAddTerritorio")) {
+        await saveTerritoriosProyecto();
+      }
+    } catch (e) {
+      console.error("SAVE territorios error:", e);
+      setMsg("✅ Proyecto guardado, pero falló guardando territorios: " + (e.message || e), "warning");
+      document.getElementById("lblProyecto").textContent = nombre;
+      return;
+    }
 
     document.getElementById("lblProyecto").textContent = nombre;
     setMsg("✅ Cambios guardados.", "success");
@@ -891,7 +896,7 @@ function renderActividadesList() {
       e.stopPropagation();
       deleteActividad(btn.dataset.actDel);
     });
-  });box.querySelectorAll("[data-act-bit]").forEach((btn) => {
+  }); box.querySelectorAll("[data-act-bit]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       openModalBitacora(btn.dataset.actBit);
@@ -1262,13 +1267,13 @@ async function copyBitacora(reporteId) {
   const validados = await fetchProductosValidadosConEvidencia(bitActividadId);
   const validadosTxt = validados.length
     ? validados
-        .map((v) => {
-          const urlsTxt = (v.urls || []).length
-            ? (v.urls || []).map((u) => `  - ${u}`).join("\n")
-            : "  - (Sin link de evidencia)";
-          return `- ${v.producto}\n${urlsTxt}`;
-        })
-        .join("\n")
+      .map((v) => {
+        const urlsTxt = (v.urls || []).length
+          ? (v.urls || []).map((u) => `  - ${u}`).join("\n")
+          : "  - (Sin link de evidencia)";
+        return `- ${v.producto}\n${urlsTxt}`;
+      })
+      .join("\n")
     : "- —";
 
   const text = [
@@ -1366,24 +1371,24 @@ async function loadBitacoraHistorial(actividadId) {
               <div class="mb-2"><span class="text-muted">Lugares:</span>
                 <ul class="mb-0">
                   ${(lugares || [])
-                    .map(
-                      (l) =>
-                        `<li>${escapeHtml(
-                          (l.departamento || "") +
-                            " — " +
-                            (l.municipio || "") +
-                            (l.detalle ? " — " + l.detalle : "")
-                        )}</li>`
-                    )
-                    .join("")}
+          .map(
+            (l) =>
+              `<li>${escapeHtml(
+                (l.departamento || "") +
+                " — " +
+                (l.municipio || "") +
+                (l.detalle ? " — " + l.detalle : "")
+              )}</li>`
+          )
+          .join("")}
                 </ul>
               </div>
 
               <div class="mb-0"><span class="text-muted">Participantes (detalle):</span><br>${escapeHtml(
-                typeof r.participantes_detalle === "string"
-                  ? r.participantes_detalle
-                  : JSON.stringify(r.participantes_detalle || {})
-              )}</div>
+            typeof r.participantes_detalle === "string"
+              ? r.participantes_detalle
+              : JSON.stringify(r.participantes_detalle || {})
+          )}</div>
             </div>
           </div>
         </div>
@@ -1442,8 +1447,8 @@ async function loadProductosEvidenciasBitacora(actividadId) {
           : "";
       const btn = ev
         ? `<button class="btn btn-sm btn-outline-secondary" type="button" data-bit-open="${escapeHtml(
-            ev
-          )}" title="Ver evidencia">
+          ev
+        )}" title="Ver evidencia">
              <i class="bi bi-box-arrow-up-right"></i>
            </button>`
         : `<span class="badge text-bg-warning">Sin evidencia</span>`;
@@ -1495,31 +1500,31 @@ async function saveBitacoraEntry() {
     };
 
     const btn = document.getElementById("btnGuardarBitacora");
-const editId = bitEditId || (btn?.dataset?.editId ? String(btn.dataset.editId) : null);
+    const editId = bitEditId || (btn?.dataset?.editId ? String(btn.dataset.editId) : null);
 
-if (editId) {
-  const { data, error } = await supabaseClient
-    .from("actividad_bitacora")
-    .update(payload)
-    .eq("id", editId)
-    .select("id");
+    if (editId) {
+      const { data, error } = await supabaseClient
+        .from("actividad_bitacora")
+        .update(payload)
+        .eq("id", editId)
+        .select("id");
 
-  if (error) throw error;
+      if (error) throw error;
 
-  // Si RLS bloquea el update, a veces no da error y simplemente retorna 0 filas.
-  if (!data || data.length === 0) {
-    return setMsgBit(
-      "No se pudo actualizar (0 filas). Si tienes RLS activo, agrega una policy UPDATE para actividad_bitacora.",
-      "warning"
-    );
-  }
+      // Si RLS bloquea el update, a veces no da error y simplemente retorna 0 filas.
+      if (!data || data.length === 0) {
+        return setMsgBit(
+          "No se pudo actualizar (0 filas). Si tienes RLS activo, agrega una policy UPDATE para actividad_bitacora.",
+          "warning"
+        );
+      }
 
-  setMsgBit("✅ Reporte actualizado.", "success");
-} else {
-  const { error } = await supabaseClient.from("actividad_bitacora").insert([payload]);
-  if (error) throw error;
-  setMsgBit("✅ Reporte guardado en la bitácora.", "success");
-}
+      setMsgBit("✅ Reporte actualizado.", "success");
+    } else {
+      const { error } = await supabaseClient.from("actividad_bitacora").insert([payload]);
+      if (error) throw error;
+      setMsgBit("✅ Reporte guardado en la bitácora.", "success");
+    }
     resetBitForm();
     await loadBitacoraHistorial(bitActividadId);
   } catch (e) {
@@ -1850,13 +1855,13 @@ async function init() {
   });
 
 
-// Territorialización múltiple (UI opcional)
-if (document.getElementById("btnAddTerritorio")) {
-  document.getElementById("btnAddTerritorio")?.addEventListener("click", addTerritorioDraftFromUI);
-  document.getElementById("inpMunicipio")?.addEventListener("change", () => {
-    try { syncTerritorioInputsFromMunicipio(); } catch (e) { console.error(e); }
-  });
-}
+  // Territorialización múltiple (UI opcional)
+  if (document.getElementById("btnAddTerritorio")) {
+    document.getElementById("btnAddTerritorio")?.addEventListener("click", addTerritorioDraftFromUI);
+    document.getElementById("inpMunicipio")?.addEventListener("change", () => {
+      try { syncTerritorioInputsFromMunicipio(); } catch (e) { console.error(e); }
+    });
+  }
 
   document.getElementById("btnLogout")?.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
@@ -2107,7 +2112,33 @@ async function pastePresupuestoItem(db) {
       return;
     }
 
+    // Intentar mapear el texto "Rubro" pegado (col 1) al catálogo rubro.nombre/codigo
+    const normKey = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // quita tildes
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const rubroTxt = String(db?.observaciones ?? "").trim(); // en el import, la col "Rubro" entra aquí
+    const rubroKey = normKey(rubroTxt);
+
+    let matchedRubro = null;
+    if (rubroKey) {
+      matchedRubro =
+        (cacheRubros || []).find((r) => normKey(r.nombre) === rubroKey) ||
+        (cacheRubros || []).find((r) => normKey(r.codigo) === rubroKey) ||
+        (cacheRubros || []).find((r) => normKey(r.nombre).startsWith(rubroKey)) ||
+        (cacheRubros || []).find((r) => rubroKey.startsWith(normKey(r.nombre)));
+    }
+
     const firstRubro = cacheRubros[0];
+    const rubro_id = matchedRubro?.id || firstRubro.id;
+
+    // Si matchea, no repetir el nombre del rubro en "observaciones"
+    const observaciones = matchedRubro ? null : (rubroTxt || null);
 
     let oper = document.getElementById("inputOperativos").value
     const nextOrden =
@@ -2116,8 +2147,8 @@ async function pastePresupuestoItem(db) {
         : 1;
     const payload = {
       actividad_id: actividadActivaId,
-      rubro_id: firstRubro.id,
-      observaciones: db.observaciones,
+      rubro_id: rubro_id,
+      observaciones: observaciones,
       beneficiarios: db.beneficiarios,
       veces: db.veces,
       valor_unitario: db.valor_unitario,
@@ -2154,7 +2185,7 @@ const EXPECTED_COLS = RUBRO_HEADERS.length; // 4
 /* =========================
    UTILIDADES
    ========================= */
-function setMsg(html, type = "muted") {
+function setImportMsg(html, type = "muted") {
   const el = document.getElementById("importRubroMsg");
   el.className = `small mt-2 text-${type}`;
   el.innerHTML = html || "";
@@ -2333,7 +2364,7 @@ function collectRubrosAsRows() {
    ACCIONES: LEER PORTAPAPELES / PEGADO / LIMPIAR / EXPORTAR
    ========================= */
 async function buildFromClipboardRubros() {
-  setMsg("");
+  setImportMsg("");
   try {
     const text = await navigator.clipboard.readText();
     const rows = parseTSVStrict(text, EXPECTED_COLS);
@@ -2347,16 +2378,16 @@ async function buildFromClipboardRubros() {
     ]));
 
     renderRubrosTable(cleaned);
-    setMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
+    setImportMsg(`Listo: ${cleaned.length} fila(s) importada(s).`, "success");
   } catch (e) {
     console.error(e);
-    setMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
+    setImportMsg(`No pude leer el portapapeles o hay error de formato. ${escapeHtml(e.message)}<br>
       Usa el cuadro de pegado manual si es un tema de permisos.`, "danger");
   }
 }
 
 function buildFromTextareaRubros() {
-  setMsg("");
+  setImportMsg("");
   try {
     const text = document.getElementById("txtPegadoRubro").value || "";
     const rows = parseTSVStrict(text, EXPECTED_COLS);
@@ -2367,37 +2398,54 @@ function buildFromTextareaRubros() {
       normalizeNumericCell(r[3]),
     ]));
     renderRubrosTable(cleaned);
-    setMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
+    setImportMsg(`Listo: ${cleaned.length} fila(s) importada(s) desde pegado.`, "success");
   } catch (e) {
-    setMsg(`Error: ${escapeHtml(e.message)}`, "danger");
+    setImportMsg(`Error: ${escapeHtml(e.message)}`, "danger");
   }
 }
 
 function clearRubros() {
   document.getElementById("txtPegadoRubro").value = "";
   renderRubrosTable([]);
-  setMsg("Tabla limpiada.", "muted");
+  setImportMsg("Tabla limpiada.", "muted");
 }
 
+
 async function exportRubrosJSON() {
+  // Importa a la BD lo que ya está en la tabla preview (no JSON del portapapeles)
   try {
-    const text = await navigator.clipboard.readText();
-    const json = JSON.parse(text);
+    setImportMsg("");
 
-    if (!Array.isArray(json) || json.length === 0) {
-      return setMsg("importRubroMsg", "❌ El portapapeles no contiene un array JSON válido.", "danger");
+    const rows = collectRubrosFromTable(); // [{observaciones (texto rubro), beneficiarios, veces, valor_unitario}, ...]
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return setImportMsg("No hay filas en la tabla para importar. Primero pega o lee el portapapeles.", "warning");
     }
 
-    // 👇 IMPORTANTE: eliminar inserción duplicada
-    for (const item of json) {
+    // Filtrar filas vacías y validar mínimos
+    const cleaned = (rows || [])
+      .map((r) => ({
+        observaciones: (r?.observaciones ?? "").trim(),
+        beneficiarios: (r?.beneficiarios ?? null),
+        veces: (r?.veces ?? null),
+        valor_unitario: (r?.valor_unitario ?? null),
+      }))
+      .filter((r) => r.observaciones || r.beneficiarios !== null || r.veces !== null || r.valor_unitario !== null);
+
+    if (cleaned.length === 0) {
+      return setImportMsg("La tabla está vacía (o sin datos).", "warning");
+    }
+
+    let imported = 0;
+    for (const item of cleaned) {
       await pastePresupuestoItem(item);
+      imported++;
     }
 
-    setMsg("importRubroMsg", `✅ Importados ${json.length} rubros.`, "success");
-
+    setImportMsg(`✅ Importados ${imported} rubros.`, "success");
   } catch (e) {
     console.error(e);
-    setMsg("importRubroMsg", "❌ " + (e.message || e), "danger");
+    setImportMsg("❌ " + (e.message || e), "danger");
   }
 }
 
@@ -2411,7 +2459,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnAbrirImportRubro").addEventListener("click", () => {
     modal.show();
-    setMsg("");
+    setImportMsg("");
   });
 
   document.getElementById("btnLeerClipboardRubro").addEventListener("click", buildFromClipboardRubros);
@@ -2429,7 +2477,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const rows = collectRubrosAsRows();
     rows.splice(rowIndex, 1);
     renderRubrosTable(rows);
-    setMsg("Fila eliminada.", "muted");
+    setImportMsg("Fila eliminada.", "muted");
   });
 
   // Render inicial con header fijo (sin filas)
@@ -2496,7 +2544,7 @@ async function pintarAvanceObjetivos(proyectoId) {
   if (error) return console.error(error);
   (data || []).forEach(r => {
     const el = document.getElementById(`badgeObjAv${r.objetivo_id}`);
-    if (el) el.textContent ="Avance objetivo:  " + pct(r.avance);
+    if (el) el.textContent = "Avance objetivo:  " + pct(r.avance);
   });
 }
 
@@ -2504,7 +2552,7 @@ async function pintarAvanceProyecto(proyectoId) {
   const { data, error } = await supabaseClient.rpc("get_avance_proyecto", { p_proyecto_id: proyectoId });
   if (error) return console.error(error);
   const el = document.getElementById("lblAvanceProyecto");
-  if (el) el.textContent = "AVANCE DEL PROYECTO  - " +  pct(data);
+  if (el) el.textContent = "AVANCE DEL PROYECTO  - " + pct(data);
 }
 
 

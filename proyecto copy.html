@@ -172,26 +172,9 @@
             </select>
           </div>
 
-          <div class="col-md-8">
-            <label class="form-label">Pueblos (catálogo)</label>
-
-            <div class="input-group">
-              <select id="selPuebloPicker" class="form-select">
-                <option value="">— Selecciona un pueblo —</option>
-              </select>
-              <button class="btn btn-outline-primary" type="button" id="btnAddPueblo" title="Agregar">
-                +
-              </button>
-            </div>
-
-            <!-- Campo espejo: se mantiene para compatibilidad con tu lógica actual -->
-            <input id="inpNombrePoblacion" type="text" class="form-control d-none" />
-
-            <div id="pueblosChips" class="d-flex flex-wrap gap-2 mt-2"></div>
-
-            <div class="form-text">
-              Selecciona un pueblo y presiona + (o Enter). Puedes quitarlo con la X.
-            </div>
+          <div class="col-md-4">
+            <label class="form-label">Nombre población / pueblo</label>
+            <input id="inpNombrePoblacion" type="text" class="form-control" placeholder="Ej: Awá, Pastos, Embera..." />
           </div>
         </div>
         <div class="row g-3">
@@ -203,6 +186,7 @@
               <option value="Jóvenes">Jóvenes</option>
               <option value="Niñez">Niñez</option>
               <option value="LGBTIQ+">LGBTIQ+</option>
+              <option value="LGBTIQ+">General</option>
               <option value="Otro">Otro</option>
             </select>
           </div>

@@ -76,3 +76,14 @@
     transform: scale(3); /* 150% del tamaño original */
     transform-origin: center;
 }
+.bg-morado {
+  background-color: #483d8b; /* Hexadecimal */
+  color: DarkSlateBlue;      /* Nombre estándar */
+}
+
+.text-morado {
+  color: #483d8b; /* Hexadecimal */
+}
+.bg-morado2 {
+  background: linear-gradient(180deg, #483D8B 0%, #6A5ACD 100%);
+}
